@@ -25,7 +25,7 @@ module Goog::SpreadsheetUtils
     requests = []
     requests.push({
       update_spreadsheet_properties: {
-        properties: {title: "OrderTrackerSpec Unit Test 1 #{Time.now.to_i}"},
+        properties: {title: title},
         fields: 'title'
       }
     })
