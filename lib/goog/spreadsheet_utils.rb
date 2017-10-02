@@ -2,6 +2,24 @@
 require 'google/apis/sheets_v4'
 
 module Goog::SpreadsheetUtils
+  def create_spreadsheet(title:, writer_emails: nil)
+    spreadsheet = nil
+    goog_retries do
+      spreadsheet = self.current_sheets_service.create_spreadsheet
+    end
+    if self.rename_spreadsheet(spreadsheet_id: spreadsheet.spreadsheet_id, title: title)
+      if writer_emails
+        if writer_emails.is_a?(String)
+          writer_emails = [writer_emails]
+        end
+        writer_emails.each do |email_address|
+          self.add_writer_permission(file_id: spreadsheet.spreadsheet_id, email_address: email_address)
+        end
+      end
+    end
+    spreadsheet
+  end
+
   # Returns true on success.
   def rename_spreadsheet(spreadsheet_id:, title:)
     requests = []
@@ -11,10 +29,12 @@ module Goog::SpreadsheetUtils
         fields: 'title'
       }
     })
-    response = self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, 
-                                                                    {requests: requests}, 
-                                                                    {})
-    response.spreadsheet_id.present?
+    goog_retries do
+      response = self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, 
+                                                                      {requests: requests}, 
+                                                                      {})
+      response.spreadsheet_id.present?
+    end
   end
 
   def current_sheets_service
@@ -151,6 +171,27 @@ module Goog::SpreadsheetUtils
           column_index: 0
         },
         paste_type: 'PASTE_NORMAL'
+      }
+    } ]
+    goog_retries do
+      self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+    end
+    true
+  end
+
+  # Thanks: https://stackoverflow.com/questions/12913874/is-it-possible-to-use-the-google-spreadsheet-api-to-add-a-comment-in-a-cell
+  def add_note(note:, spreadsheet_id:, sheet:, row_num:, num_rows:1, column_num:, num_cols: 1)
+    requests = [ {
+      repeat_cell: {
+        range: {
+          sheet_id: sheet.properties.sheet_id,
+          start_row_index: row_num-1,
+          end_row_index: row_num-1+num_rows,
+          start_column_index: column_num-1,
+          end_column_index: column_num-1+num_cols
+        },
+        cell: { note: note },
+        fields: 'note'
       }
     } ]
     goog_retries do
