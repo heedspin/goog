@@ -65,6 +65,17 @@ module Goog::SpreadsheetUtils
     end
   end
 
+  # Returns hash of tab names to value arrays.
+  def get_multiple_sheet_values(spreadsheet_id, sheets:)
+    value_ranges = self.get_multiple_ranges(spreadsheet_id, sheets: sheets)
+    result = {}
+    value_ranges.each do |value_range|
+      tab_name = self.get_range_parts(value_range.range)[0]
+      result[tab_name] = value_range.values
+    end
+    result
+  end
+
   def write_rows(sheet:, spreadsheet_id:, start_row:, values:)
     range = "#{sheet.properties.title}!A#{start_row}"
     goog_retries do
@@ -255,6 +266,13 @@ module Goog::SpreadsheetUtils
       return [sheet, $2, $3]
     end
     nil
+  end
+
+  def result_set_to_records(record_class, range_values)
+    schema = record_class.create_schema(range_values[0])
+    range_values[1..-1].map do |row|
+      record_class.new(schema: schema, row_values: row)
+    end
   end
 
   def self.included base

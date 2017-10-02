@@ -31,6 +31,19 @@ module Goog::DriveUtils
     end
   end
 
+  def delete_files_containing(containing, drive: nil)
+    drive ||= self.current_drive
+    # Delete the mess we created.
+    drive.list_files(corpora: 'user', q: ["name contains \"#{containing}\""]).files.each do |file|
+      begin
+        drive.delete_file(file.id)
+        log "Deleted #{file.name}"
+      rescue Google::Apis::ClientError => e
+        log_error "Failed to delete #{file.name}"
+      end
+    end
+  end
+
   def self.included base
     base.class_eval do
       include Plutolib::LoggerUtils
