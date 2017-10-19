@@ -1,11 +1,15 @@
 class Goog::SheetRecord
   attr :schema
   attr :row_values
+  attr :row_num
+  attr :sheet
   include Goog::SpreadsheetUtils
 
-  def initialize(schema:, row_values:)
+  def initialize(schema:, row_values:, row_num:, sheet:)
     @schema = schema
     @row_values = row_values
+    @row_num = row_num
+    @sheet = sheet
   end
 
   def get_row_value(key)
@@ -26,9 +30,13 @@ class Goog::SheetRecord
 
   def method_missing(mid, *args)
     if mid[-1] == '='
-      self.set_row_value(mid[0..-2].to_sym, args[0])
+      mid = mid[0..-2].to_sym
+      raise NoMethodError.new("Unknown method #{mid}=") unless @schema.member?(mid)
+      self.set_row_value(mid, args[0])
     else
-      self.get_row_value(mid.to_sym)
+      mid = mid.to_sym
+      raise NoMethodError.new("Unknown method #{mid}") unless @schema.member?(mid)
+      self.get_row_value(mid)
     end
   end
 
@@ -39,4 +47,13 @@ class Goog::SheetRecord
     end
     result
   end
+
+  def self.from_range_values(values:, sheet:)
+    schema = self.create_schema(values[0])
+    values[1..-1].map.with_index do |row, index|
+      new(schema: schema, row_values: row, row_num: index+2, sheet: sheet)
+    end
+  end
+
+
 end
