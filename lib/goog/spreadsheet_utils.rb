@@ -37,6 +37,22 @@ module Goog::SpreadsheetUtils
     end
   end
 
+  # Returns true on success.
+  def turn_off_filters(spreadsheet_id:, sheet:)
+    requests = []
+    requests.push({
+      clear_basic_filter: {
+        sheet_id: sheet.properties.sheet_id
+      }
+    })
+    goog_retries do
+      response = self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, 
+                                                                      {requests: requests}, 
+                                                                      {})
+      response.spreadsheet_id.present?
+    end
+  end
+
   def current_sheets_service
     if @current_sheets_service.nil?
       raise "No authorizer established" unless self.current_authorizer.present?
