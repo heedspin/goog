@@ -155,6 +155,22 @@ module Goog::SpreadsheetUtils
     true
   end
 
+  def move_row_between_sheets(spreadsheet_id:, source_sheet:, source_row_num:, destination_sheet:, destination_row_num:)
+    self.insert_empty_rows(spreadsheet_id: spreadsheet_id, 
+                           sheet: destination_sheet, 
+                           start_row: destination_row_num,
+                           num_rows: 1)
+    self.cut_paste_rows(spreadsheet_id: spreadsheet_id,
+                        source_sheet: source_sheet,
+                        source_row_num: source_row_num,
+                        destination_sheet: destination_sheet,
+                        destination_row_num: destination_row_num)
+    self.delete_rows(spreadsheet_id: spreadsheet_id,
+                     sheet: source_sheet,
+                     row_num: source_row_num,
+                     num_rows: 1)
+  end
+
   def cut_paste_rows(spreadsheet_id:, source_sheet:, source_row_num:, num_rows:1, destination_sheet:,destination_row_num:)
     requests = [ {
       cut_paste: {
@@ -300,20 +316,19 @@ module Goog::SpreadsheetUtils
 
   # Returns [Sheet, Range1, Range2]
   def get_range_parts(range)
-    if range =~ /([a-zA-Z]+!)?([A-Z]+\d+):([A-Z]+\d+)/
-      if sheet = $1
+    if range =~ /([' a-zA-Z]+!)?([A-Z]+\d+):([A-Z]+\d+)/
+      sheet = $1
+      range1 = $2
+      range2 = $3
+      if sheet
         sheet = sheet[0..sheet.size-2]
+        if sheet =~ /'(.+)'/
+          sheet = $1
+        end
       end
-      return [sheet, $2, $3]
+      return [sheet, range1, range2]
     end
     nil
-  end
-
-  def result_set_to_records(record_class, range_values)
-    schema = record_class.create_schema(range_values[0])
-    range_values[1..-1].map do |row|
-      record_class.new(schema: schema, row_values: row)
-    end
   end
 
   def self.included base
