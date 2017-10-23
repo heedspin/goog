@@ -55,5 +55,16 @@ class Goog::SheetRecord
     end
   end
 
-
+  def self.date_attribute(key)
+    self.class_eval <<-RUBY
+    def #{key}
+      value = self.get_row_value(:#{key})
+      return nil unless value.present?
+      if value.is_a?(String)
+        value = Date.strptime(value, '%m/%d/%Y') 
+      end
+      value
+    end
+    RUBY
+  end
 end
