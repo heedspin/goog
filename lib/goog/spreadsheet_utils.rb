@@ -93,17 +93,21 @@ module Goog::SpreadsheetUtils
     end
   end
 
-  def get_multiple_ranges(spreadsheet_id, sheets:)
+  def get_multiple_ranges(spreadsheet_id, sheets:, value_render_option: nil)
     ranges = sheets.map { |s| self.get_sheet_range(s) }
     goog_retries do
-      result = self.current_sheets_service.batch_get_spreadsheet_values(spreadsheet_id, ranges: ranges)
+      result = self.current_sheets_service.batch_get_spreadsheet_values(spreadsheet_id, 
+                                                                        ranges: ranges, 
+                                                                        value_render_option: value_render_option)
       result.value_ranges
     end
   end
 
   # Returns hash of tab names to value arrays.
-  def get_multiple_sheet_values(spreadsheet_id, sheets:)
-    value_ranges = self.get_multiple_ranges(spreadsheet_id, sheets: sheets)
+  def get_multiple_sheet_values(spreadsheet_id, sheets:, value_render_option: nil)
+    value_ranges = self.get_multiple_ranges(spreadsheet_id, 
+                                            sheets: sheets, 
+                                            value_render_option: value_render_option)
     result = {}
     value_ranges.each do |value_range|
       tab_name = self.get_range_parts(value_range.range)[0]
