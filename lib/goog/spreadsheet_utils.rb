@@ -93,7 +93,7 @@ module Goog::SpreadsheetUtils
     end
   end
 
-  def get_multiple_ranges(spreadsheet_id, sheets:, value_render_option: nil)
+  def get_multiple_ranges(spreadsheet_id, sheets:, value_render_option: :unformatted_value)
     ranges = sheets.map { |s| self.get_sheet_range(s) }
     goog_retries do
       result = self.current_sheets_service.batch_get_spreadsheet_values(spreadsheet_id, 
@@ -104,7 +104,7 @@ module Goog::SpreadsheetUtils
   end
 
   # Returns hash of tab names to value arrays.
-  def get_multiple_sheet_values(spreadsheet_id, sheets:, value_render_option: nil)
+  def get_multiple_sheet_values(spreadsheet_id, sheets:, value_render_option: :unformatted_value)
     value_ranges = self.get_multiple_ranges(spreadsheet_id, 
                                             sheets: sheets, 
                                             value_render_option: value_render_option)
