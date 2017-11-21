@@ -255,7 +255,10 @@ module Goog::SpreadsheetUtils
   end
 
   def copy_spreadsheet(spreadsheet_id, new_name: nil, writer_emails: nil, destination_folder_id: nil)
-    new_file = self.current_drive.copy_file(spreadsheet_id)
+    new_file = nil
+    goog_retries do
+      new_file = self.current_drive.copy_file(spreadsheet_id)
+    end
     if new_name
       # Renames the spreadsheet
       requests = []
