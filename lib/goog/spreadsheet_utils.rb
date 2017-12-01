@@ -103,6 +103,13 @@ module Goog::SpreadsheetUtils
     end
   end
 
+  def clear_range(spreadsheet_id, range)
+    goog_retries do
+      request_body = Google::Apis::SheetsV4::ClearValuesRequest.new
+      result = self.current_sheets_service.clear_values(spreadsheet_id, range, request_body)
+    end
+  end
+
   # Returns hash of tab names to value arrays.
   def get_multiple_sheet_values(spreadsheet_id, sheets:, value_render_option: :unformatted_value)
     value_ranges = self.get_multiple_ranges(spreadsheet_id, 

@@ -1,4 +1,5 @@
 require 'goog/no_schema_error'
+require 'goog/sheet_record_collection'
 
 class Goog::SheetRecord
   class << self
@@ -84,6 +85,10 @@ class Goog::SheetRecord
       result[value.parameterize.underscore.to_sym] = index
     end
     result
+  end
+
+  def self.to_collection(values:, sheet:)
+    Goog::SheetRecordCollection.new self.from_range_values(values: values, sheet: sheet)
   end
 
   def self.from_range_values(values:, sheet:)
