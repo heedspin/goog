@@ -1,7 +1,12 @@
 class Goog::SheetRecordCollection
   attr :records
+
   def initialize(records)
     @records = records
+  end
+
+  def first
+    @records.first
   end
 
   def size

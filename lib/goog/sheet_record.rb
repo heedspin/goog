@@ -87,11 +87,17 @@ class Goog::SheetRecord
     result
   end
 
-  def self.to_collection(values:, sheet:)
-    Goog::SheetRecordCollection.new self.from_range_values(values: values, sheet: sheet)
+  def self.to_collection(values: nil, sheet:, multiple_sheet_values: nil)
+    Goog::SheetRecordCollection.new self.from_range_values(values: values, sheet: sheet, multiple_sheet_values: multiple_sheet_values)
   end
 
-  def self.from_range_values(values:, sheet:)
+  def self.from_range_values(values: nil, sheet:, multiple_sheet_values: nil)
+    if values.nil?
+      if multiple_sheet_values.nil?
+        raise 'values or multiple_sheet_values must be specified'
+      end
+      values = multiple_sheet_values[sheet.properties.title]
+    end
     self.schema = self.create_schema(values[0])
     values[1..-1].map.with_index do |row, index|
       new(schema: self.schema, row_values: row, row_num: index+2, sheet: sheet)
