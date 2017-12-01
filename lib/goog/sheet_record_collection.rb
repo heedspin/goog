@@ -26,14 +26,14 @@ class Goog::SheetRecordCollection
     nil
   end
 
-  def find_all(fields, &block)
+  def find_all(fields = nil, &block)
     result = []
     @records.each do |t|
       if block_given?
         if yield(t)
           result.push t
         end
-      elsif fields and fields.all? { |key, value| t.send(key) == value }
+      elsif fields.nil? or fields.all? { |key, value| t.send(key) == value }
         result.push t
       end
     end
