@@ -94,7 +94,7 @@ module Goog::SpreadsheetUtils
   end
 
   def get_multiple_ranges(spreadsheet_id, sheets:, value_render_option: :unformatted_value)
-    ranges = sheets.map { |s| self.get_sheet_range(s) }
+    ranges = sheets.map { |s| self.get_sheet_range(s) }.compact
     goog_retries do
       result = self.current_sheets_service.batch_get_spreadsheet_values(spreadsheet_id, 
                                                                         ranges: ranges, 
@@ -340,6 +340,7 @@ module Goog::SpreadsheetUtils
   end
 
   def get_sheet_range(sheet_properties, columns: nil)
+    return nil unless sheet_properties
     column_count = columns ? columns : sheet_properties.properties.grid_properties.column_count
     "#{sheet_properties.properties.title}!A1:#{self.column_to_letter(column_count)}#{sheet_properties.properties.grid_properties.row_count}"
   end
