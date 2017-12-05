@@ -13,6 +13,10 @@ class Goog::SheetRecordCollection
     @records.size
   end
 
+  def each(&block)
+    @records.each(&block)
+  end
+
   def sort(field, reverse: false)
     @records.sort_by! { |r| r.send(field) }
     @records.reverse! if reverse
