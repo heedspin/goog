@@ -79,10 +79,18 @@ class Goog::SheetRecord
     end
   end  
 
+  def self.rename_columns(map)
+    @@rename_columns = map
+  end
+
   def self.create_schema(header_row)
     result = {}
     header_row.each_with_index do |value, index|
-      result[value.parameterize.underscore.to_sym] = index
+      key = value.parameterize.underscore.to_sym
+      if @@rename_columns and (new_key = @@rename_columns[key])
+        key = new_key
+      end
+      result[key] = index
     end
     result
   end
