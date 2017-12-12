@@ -79,6 +79,7 @@ class Goog::SheetRecord
     end
   end  
 
+  @@rename_columns = nil
   def self.rename_columns(map)
     @@rename_columns = map
   end
