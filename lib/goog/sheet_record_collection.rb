@@ -24,8 +24,8 @@ class Goog::SheetRecordCollection
 
   def find(fields=nil, &block)
     @records.each do |t|
-      if block_given?
-        if yield(t)
+      if block
+        if block.call(t)
           return t
         end
       elsif fields and fields.all? { |key, value| t.send(key) == value }

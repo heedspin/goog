@@ -282,24 +282,10 @@ module Goog::SpreadsheetUtils
       end
     end
     if writer_emails
-      writer_emails = [writer_emails] if writer_emails.is_a?(String)
-      writer_emails.each do |email_address|
-        permission = { type: 'user', role: 'writer', email_address: email_address }
-        goog_retries do
-          self.current_drive.create_permission(new_file.id,
-                                               permission,
-                                               fields: 'id')
-        end
-      end
+      self.add_writer_permission(file_id: new_file.id, email_address: writer_emails) || (return false)
     end
     if destination_folder_id
-      previous_parents = self.current_drive.get_file(new_file.id, fields: 'parents').parents.join(',')
-      goog_retries do
-        self.current_drive.update_file(new_file.id,
-                                       add_parents: destination_folder_id,
-                                       remove_parents: previous_parents,
-                                       fields: 'id, parents')
-      end
+      self.add_file_to_folder(file_id: new_file.id, destination_folder_id: destination_folder_id) || (return false)
     end
     new_file
   end
