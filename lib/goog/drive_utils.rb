@@ -27,24 +27,24 @@ module Goog::DriveUtils
   end
 
   def get_files_containing(containing, parent_folder_id: nil)
-    query = ["name contains \"#{containing}\""]
+    query = ["name contains '#{containing}'"]
     if parent_folder_id
-      query.push "\"#{parent_folder_id}\" in parents"
+      query.push "parents in '#{parent_folder_id}'"
     end
     goog_retries do
-      result = self.current_drive.list_files(corpora: 'user', q: query)
+      result = self.current_drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
       return result.files
     end
   end
 
   # https://developers.google.com/drive/v3/web/search-parameters
   def get_files_by_name(name, parent_folder_id: nil)
-    query = ["name = \"#{name}\""]
+    query = ["name = '#{name}'"]
     if parent_folder_id
-      query.push "\"#{parent_folder_id}\" in parents"
+      query.push "parents in '#{parent_folder_id}'"
     end
     goog_retries do
-      result = self.current_drive.list_files(corpora: 'user', q: query)
+      result = self.current_drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
       return result.files
     end
   end
@@ -140,6 +140,10 @@ module Goog::DriveUtils
     return status.exitstatus == 0
   end
 
+  def quote_sed_string(str)
+    str.to_s.gsub('[','\[').gsub(']','\]').gsub("'", '\\\'')
+  end
+
   # Returns new file id.
   # You do not need to specify shared folder and writer_emails.  If folder is shared, permissions are inherited.
   def create_doc_from_template(source_file_id:, destination_folder_id: nil, destination_file_name:, destination_file_id: nil, query_replace_map:, writer_emails: nil)
@@ -151,8 +155,7 @@ module Goog::DriveUtils
       self.drive_shell_command("unzip -d #{dir} #{odt_file} content.xml") || (return false)
       # Do query replace
       query_replace_map.each do |from, to|
-        from = from.gsub('[','\[').gsub(']','\]')
-        self.drive_shell_command("sed -i 's/#{from}/#{to}/g' #{content_file}") || (return false)
+        self.drive_shell_command("sed -i 's/#{quote_sed_string(from)}/#{quote_sed_string(to)}/g' #{content_file}") || (return false)
       end
       self.drive_shell_command("cd #{dir} ; zip #{odt_file} content.xml") || (return false)
       file_id = self.upload_odt_to_doc(existing_file_id: destination_file_id, file_name: destination_file_name, path_to_odt: odt_file, writer_emails: writer_emails)
