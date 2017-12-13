@@ -26,23 +26,35 @@ module Goog::DriveUtils
     return result.size == 1 ? result.first : result
   end
 
-  def get_files_containing(containing, parent_folder_id: nil)
-    query = ["name contains '#{containing}'"]
+  def build_drive_utils_query(query, parent_folder_id: nil, file_type: nil)
     if parent_folder_id
       query.push "parents in '#{parent_folder_id}'"
     end
+    case file_type
+    when :folder
+      query.push "mimeType = 'application/vnd.google-apps.folder'"
+    when :file
+      query.push "mimeType != 'application/vnd.google-apps.folder'"
+    end
+  end
+
+  def get_files_containing(containing, parent_folder_id: nil, file_type: :file)
+    query = ["name contains '#{containing}'"]
+    self.build_drive_utils_query(query, parent_folder_id: parent_folder_id, file_type: file_type)
     goog_retries do
       result = self.current_drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
       return result.files
     end
   end
 
+  def get_folders_by_name(name, parent_folder_id: nil)
+    self.get_files_by_name(name, parent_folder_id: parent_folder_id, file_type: :folder)
+  end
+
   # https://developers.google.com/drive/v3/web/search-parameters
-  def get_files_by_name(name, parent_folder_id: nil)
+  def get_files_by_name(name, parent_folder_id: nil, file_type: :file)
     query = ["name = '#{name}'"]
-    if parent_folder_id
-      query.push "parents in '#{parent_folder_id}'"
-    end
+    self.build_drive_utils_query(query, parent_folder_id: parent_folder_id, file_type: file_type)
     goog_retries do
       result = self.current_drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
       return result.files
