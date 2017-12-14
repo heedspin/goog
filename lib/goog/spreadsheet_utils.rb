@@ -285,7 +285,7 @@ module Goog::SpreadsheetUtils
       self.add_writer_permission(file_id: new_file.id, email_address: writer_emails) || (return false)
     end
     if destination_folder_id
-      self.add_file_to_folder(file_id: new_file.id, destination_folder_id: destination_folder_id) || (return false)
+      self.add_file_to_folder(file_id: new_file.id, folder_id: destination_folder_id) || (return false)
     end
     new_file
   end

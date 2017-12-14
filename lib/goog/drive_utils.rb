@@ -86,11 +86,11 @@ module Goog::DriveUtils
     end
   end
 
-  def add_file_to_folder(file_id:, destination_folder_id:)
+  def add_file_to_folder(file_id:, folder_id:)
     previous_parents = self.current_drive.get_file(file_id, fields: 'parents').parents.join(',')
     goog_retries do
       self.current_drive.update_file(file_id,
-                                     add_parents: destination_folder_id,
+                                     add_parents: folder_id,
                                      remove_parents: previous_parents,
                                      fields: 'id, parents')
     end
@@ -109,7 +109,7 @@ module Goog::DriveUtils
   end
 
   # Google Drive MIME Types: https://developers.google.com/drive/v3/web/mime-types
-  def upload_odt_to_doc(existing_file_id: nil, file_name: nil, path_to_odt: , writer_emails: nil)
+  def upload_odt_to_doc(existing_file_id: nil, file_name: nil, folder_id: nil, path_to_odt: , writer_emails: nil)
     file_id = nil
     file_metadata = {
       name: file_name,
@@ -129,6 +129,9 @@ module Goog::DriveUtils
                                                  fields: 'id',
                                                  upload_source: path_to_odt,
                                                  content_type: 'application/vnd.oasis.opendocument.text').try(:id)
+      end
+      if folder_id
+        self.add_file_to_folder(file_id: file_id, folder_id: folder_id) || (return false)
       end
     end
     if writer_emails and file_id
@@ -173,7 +176,7 @@ module Goog::DriveUtils
       file_id = self.upload_odt_to_doc(existing_file_id: destination_file_id, file_name: destination_file_name, path_to_odt: odt_file, writer_emails: writer_emails)
     end
     if destination_folder_id
-      self.add_file_to_folder(file_id: file_id, destination_folder_id: destination_folder_id) || (return false)
+      self.add_file_to_folder(file_id: file_id, folder_id: destination_folder_id) || (return false)
     end
     if writer_emails
       self.add_writer_permission(file_id: file_id, email_address: writer_emails)
