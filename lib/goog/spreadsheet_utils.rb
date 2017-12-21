@@ -86,9 +86,12 @@ module Goog::SpreadsheetUtils
     nil
   end
 
-  def get_range(spreadsheet_id, range)
+  def get_range(spreadsheet_id, range, value_render_option: :unformatted_value)
+    spreadsheet_id = spreadsheet_id.id if spreadsheet_id.is_a?(Google::Apis::DriveV3::File)
     goog_retries do
-      result = self.current_sheets_service.get_spreadsheet_values(spreadsheet_id, range)
+      result = self.current_sheets_service.get_spreadsheet_values(spreadsheet_id, 
+                                                                  range, 
+                                                                  value_render_option: value_render_option)
       result.values
     end
   end
@@ -351,6 +354,7 @@ module Goog::SpreadsheetUtils
   def self.included base
     base.class_eval do
       include Goog::DriveUtils
+      include Goog::DateUtils
     end
   end
 end

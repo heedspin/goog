@@ -97,8 +97,8 @@ module Goog::DriveUtils
     true
   end    
 
-  def delete_files_containing(containing)
-    self.get_files_containing(containing).each do |file|
+  def delete_files_containing(containing, parent_folder_id: nil, file_type: :file)
+    self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: file_type).each do |file|
       begin
         self.current_drive.delete_file(file.id)
         log "Deleted #{file.name}"
