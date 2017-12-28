@@ -175,7 +175,7 @@ class Goog::SheetRecord
     end
     self.class_eval <<-RUBY
     def #{key}
-      #{klass}.find_by_name self.get_row_value(:#{key})
+      #{klass}.find_by_alias self.get_row_value(:#{key})
     end
 
     def #{key}=(value)
