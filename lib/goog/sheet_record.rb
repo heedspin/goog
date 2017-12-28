@@ -11,6 +11,7 @@ class Goog::SheetRecord
   attr :row_num
   attr :sheet
   attr :schema
+  attr :changes
   include Goog::SpreadsheetUtils
 
   def initialize(schema: nil, row_values: nil, row_num: nil, sheet: nil)
@@ -23,6 +24,11 @@ class Goog::SheetRecord
 
   def schema
     @schema || self.class.schema
+  end
+
+  def a1(column)
+    index = column.is_a?(Symbol) ? self.schema[column] : column
+    "#{@sheet.properties.title}!#{self.column_to_letter(index+1)}#{self.row_num}"
   end
 
   def get_row_value(key)
@@ -38,6 +44,10 @@ class Goog::SheetRecord
   end
 
   def set_row_value(key, value)
+    previous_value = self.get_row_value(key)
+    if previous_value != value
+      (@changes ||= []).push [key, previous_value, value]
+    end
     if @row_values
       if index = self.schema[key]
         @row_values[index] = value
@@ -47,6 +57,19 @@ class Goog::SheetRecord
     else
       @key_values[key] = value
     end
+  end
+
+  def changes_to_s
+    if @changes.nil?
+      ''
+    else
+      @changes.map { |key, previous_value, new_value|
+        "#{key} #{previous_value} => #{new_value}"
+      }.join(', ')
+    end
+  end
+  def changed?
+    @changes.present?
   end
 
   def row_values
@@ -113,12 +136,15 @@ class Goog::SheetRecord
     end
   end
 
-  def self.build(values)
-    transaction = new
+  def set_attributes(values)
     values.each do |key, value|
-      transaction.send("#{key}=", value)
+      self.send("#{key}=", value)
     end
-    transaction
+    self
+  end
+
+  def self.build(values)
+    new.set_attributes(values)
   end
 
   def self.date_attribute(key)

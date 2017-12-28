@@ -96,8 +96,9 @@ module Goog::SpreadsheetUtils
     end
   end
 
-  def get_multiple_ranges(spreadsheet_id, sheets:, value_render_option: :unformatted_value)
-    ranges = sheets.map { |s| self.get_sheet_range(s) }.compact
+  def get_multiple_ranges(spreadsheet_id, ranges: nil, sheets: nil, value_render_option: :unformatted_value)
+    ranges ||= sheets.map { |s| self.get_sheet_range(s) }.compact
+    raise "No ranges specified" unless ranges
     goog_retries do
       result = self.current_sheets_service.batch_get_spreadsheet_values(spreadsheet_id, 
                                                                         ranges: ranges, 
@@ -162,6 +163,14 @@ module Goog::SpreadsheetUtils
                                                       {})
     end
     true
+  end
+
+  def write_changes(spreadsheet_id, record)
+    data = []
+    record.changes.each do |key, previous_value, value|
+      data.push({ range: record.a1(key), values: [[value]] })
+    end
+    self.batch_write_ranges(spreadsheet_id, data)
   end
 
   def insert_empty_rows(sheet:, spreadsheet_id:, start_row:, num_rows: 1)
