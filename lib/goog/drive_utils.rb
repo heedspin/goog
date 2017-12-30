@@ -51,6 +51,10 @@ module Goog::DriveUtils
     self.get_files_by_name(name, parent_folder_id: parent_folder_id, file_type: :folder)
   end
 
+  def get_folders_containing(containing, parent_folder_id: nil)
+    self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: :folder)
+  end
+
   # https://developers.google.com/drive/v3/web/search-parameters
   def get_files_by_name(name, parent_folder_id: nil, file_type: :file)
     query = ["name = '#{name}'"]
