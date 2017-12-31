@@ -147,6 +147,8 @@ class Goog::SheetRecord
     new.set_attributes(values)
   end
 
+  GOOGLE_EPOCH=Date.new(1899,12,30)
+
   def self.date_attribute(key)
     self.class_eval <<-RUBY
     def #{key}
@@ -155,14 +157,15 @@ class Goog::SheetRecord
       if value.is_a?(String)
         value = Date.strptime(value, '%m/%d/%Y')
       elsif value.is_a?(Integer)
-        value = Date.new(1899,12,30).advance(days: value)
+        value = GOOGLE_EPOCH.advance(days: value)
       end
       value
     end
 
     def #{key}=(value)
       if value.is_a?(Date)
-        value = value.strftime('%m/%d/%Y') 
+        # value = value.strftime('%m/%d/%Y') 
+        value = (value - GOOGLE_EPOCH).to_i
       end
       self.set_row_value :#{key}, value
     end
