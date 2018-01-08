@@ -5,9 +5,9 @@ require 'google/apis/drive_v3'
 module Goog::DriveUtils
   def current_drive
     if @current_drive.nil?
-      raise "No authorizer established" unless self.current_authorizer.present?
+      raise "No authorizer established" unless Goog::Authorizer.established?
       @current_drive = Google::Apis::DriveV3::DriveService.new
-      @current_drive.authorization = self.current_authorizer
+      @current_drive.authorization = Goog::Authorizer.authorization
     end
     @current_drive
   end
@@ -192,7 +192,6 @@ module Goog::DriveUtils
     base.class_eval do
       include Plutolib::LoggerUtils
       include Goog::Retry
-      include Goog::AuthorizerUtils
     end
   end
 end

@@ -55,9 +55,9 @@ module Goog::SpreadsheetUtils
 
   def current_sheets_service
     if @current_sheets_service.nil?
-      raise "No authorizer established" unless self.current_authorizer.present?
+      raise "No authorizer established" unless Goog::Authorizer.established?
       @current_sheets_service = Google::Apis::SheetsV4::SheetsService.new
-      @current_sheets_service.authorization = self.current_authorizer
+      @current_sheets_service.authorization = Goog::Authorizer.authorization
     end
     @current_sheets_service
   end
@@ -86,17 +86,27 @@ module Goog::SpreadsheetUtils
     nil
   end
 
-  def get_range(spreadsheet_id, range, value_render_option: :unformatted_value)
+  def get_range(spreadsheet_id, range=nil, sheet: nil, value_render_option: :unformatted_value, major_dimension: :rows)
     spreadsheet_id = spreadsheet_id.id if spreadsheet_id.is_a?(Google::Apis::DriveV3::File)
+    if range.nil?
+      if sheet
+        sheet = self.get_sheet_by_name(spreadsheet_id, sheet) if sheet.is_a?(String)
+      else
+        sheet = self.get_sheets(spreadsheet_id).first
+      end
+      range = self.get_sheet_range(sheet)
+    end
     goog_retries do
       result = self.current_sheets_service.get_spreadsheet_values(spreadsheet_id, 
                                                                   range, 
-                                                                  value_render_option: value_render_option)
+                                                                  value_render_option: value_render_option,
+                                                                  major_dimension: major_dimension)
       result.values
     end
   end
 
   def get_multiple_ranges(spreadsheet_id, ranges: nil, sheets: nil, value_render_option: :unformatted_value)
+    sheets ||= self.get_sheets(spreadsheet_id)
     ranges ||= sheets.map { |s| self.get_sheet_range(s) }.compact
     raise "No ranges specified" unless ranges
     goog_retries do
@@ -115,7 +125,8 @@ module Goog::SpreadsheetUtils
   end
 
   # Returns hash of tab names to value arrays.
-  def get_multiple_sheet_values(spreadsheet_id, sheets:, value_render_option: :unformatted_value)
+  def get_multiple_sheet_values(spreadsheet_id, sheets: nil, value_render_option: :unformatted_value)
+    sheets ||= self.get_sheets(spreadsheet_id)
     value_ranges = self.get_multiple_ranges(spreadsheet_id, 
                                             sheets: sheets, 
                                             value_render_option: value_render_option)
@@ -147,30 +158,30 @@ module Goog::SpreadsheetUtils
     end
   end
 
-  def append_range(spreadsheet_id, range, values)
+  def append_range(spreadsheet_id, range, values, major_dimension: :rows)
     goog_retries do
       self.current_sheets_service.append_spreadsheet_value(spreadsheet_id,
                                                            range,
-                                                           { values: values },
+                                                           { values: values, major_dimension: major_dimension },
                                                            value_input_option: 'USER_ENTERED')
     end
   end
 
-  def batch_write_ranges(spreadsheet_id, data)    
+  def batch_write_ranges(spreadsheet_id, data, major_dimension: :rows)    
     goog_retries do
       self.current_sheets_service.batch_update_values(spreadsheet_id, 
-                                                      { value_input_option: 'USER_ENTERED', data: data },
-                                                      {})
+                                                      { value_input_option: 'USER_ENTERED', data: data, major_dimension: major_dimension },
+                                                      { })
     end
     true
   end
 
-  def write_changes(spreadsheet_id, record)
+  def write_changes(spreadsheet_id, record, major_dimension: :rows)
     data = []
     record.changes.each do |key, previous_value, value|
       data.push({ range: record.a1(key), values: [[value]] })
     end
-    self.batch_write_ranges(spreadsheet_id, data)
+    self.batch_write_ranges(spreadsheet_id, data, major_dimension: major_dimension)
   end
 
   def insert_empty_rows(sheet:, spreadsheet_id:, start_row:, num_rows: 1)

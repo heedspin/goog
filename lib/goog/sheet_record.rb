@@ -4,21 +4,27 @@ require 'goog/sheet_record_collection'
 class Goog::SheetRecord
   class << self
     attr_accessor :schema
+    # HERE: Needs to be global
+    attr_accessor :connection
   end
 
   attr :row_values
   attr :key_values
   attr :row_num
+  attr :spreadsheet_id
   attr :sheet
   attr :schema
   attr :changes
+  attr :major_dimension
   include Goog::SpreadsheetUtils
 
-  def initialize(schema: nil, row_values: nil, row_num: nil, sheet: nil)
+  def initialize(schema: nil, row_values: nil, row_num: nil, sheet: nil, spreadsheet_id: nil, major_dimension: nil)
     @schema = schema || self.class.schema
     @row_values = row_values
     @row_num = row_num
+    @spreadsheet_id = spreadsheet_id
     @sheet = sheet
+    @major_dimension = major_dimension
     @key_values = {}
   end
 
@@ -28,7 +34,18 @@ class Goog::SheetRecord
 
   def a1(column)
     index = column.is_a?(Symbol) ? self.schema[column] : column
-    "#{@sheet.properties.title}!#{self.column_to_letter(index+1)}#{self.row_num}"
+    result = []
+    if @sheet
+      result.push @sheet.properties.title + '!'
+    end
+    if @major_dimension.nil? or (@major_dimension == :rows)
+      result.push self.column_to_letter(index+1)
+      result.push self.row_num.to_s
+    else
+      result.push self.column_to_letter(self.row_num)
+      result.push (index + 1).to_s
+    end
+    result.join
   end
 
   def get_row_value(key)
@@ -72,6 +89,16 @@ class Goog::SheetRecord
     @changes.present?
   end
 
+  def self.ensure_schema(spreadsheet_id: nil, sheet: nil, major_dimension: :rows)
+    if !self.schema
+      if spreadsheet_id and sheet and major_dimension
+        self.load_schema(spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
+      end
+      raise Goog::NoSchemaError unless self.schema
+    end
+    self.schema
+  end
+
   def row_values
     raise Goog::NoSchemaError unless self.schema
     if @row_values
@@ -107,6 +134,10 @@ class Goog::SheetRecord
     @@rename_columns = map
   end
 
+  def save
+    self.class.connection.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
+  end
+
   def self.create_schema(header_row)
     result = {}
     header_row.each_with_index do |value, index|
@@ -119,26 +150,60 @@ class Goog::SheetRecord
     result
   end
 
-  def self.to_collection(values: nil, sheet:, multiple_sheet_values: nil)
-    Goog::SheetRecordCollection.new self.from_range_values(values: values, sheet: sheet, multiple_sheet_values: multiple_sheet_values)
+  def self.load_schema(spreadsheet_id, sheet: nil, major_dimension: :rows)
+    if sheet
+      sheet = self.connection.get_sheet_by_name(spreadsheet_id, sheet) if sheet.is_a?(String)
+    else
+      sheet = self.connection.get_sheets(spreadsheet_id).first
+    end
+    range = if major_dimension == :rows
+      'A:A'
+    else
+      '1:1'
+    end
+    values = self.connection.get_range(spreadsheet_id, range, sheet: sheet, value_render_option: value_render_option, major_dimension: major_dimension)
+    self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
   end
 
-  def self.from_range_values(values: nil, sheet:, multiple_sheet_values: nil)
+  def self.find(spreadsheet_id, range: nil, sheet: nil, value_render_option: :unformatted_value, major_dimension: :rows)
+    if sheet
+      sheet = self.connection.get_sheet_by_name(spreadsheet_id, sheet) if sheet.is_a?(String)
+    else
+      sheet = self.connection.get_sheets(spreadsheet_id).first
+    end
+    values = self.connection.get_range(spreadsheet_id, range, sheet: sheet, major_dimension: major_dimension)
+    self.schema = self.create_schema(values[0])
+  end
+
+  def self.to_collection(values: nil, spreadsheet_id: nil, sheet: nil, multiple_sheet_values: nil)
+    Goog::SheetRecordCollection.new self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, multiple_sheet_values: multiple_sheet_values)
+  end
+
+  def self.from_range_values(values: nil, spreadsheet_id: nil, sheet: nil, multiple_sheet_values: nil, major_dimension: :rows)
     if values.nil?
       if multiple_sheet_values.nil?
         raise 'values or multiple_sheet_values must be specified'
       end
-      values = multiple_sheet_values[sheet.properties.title]
+      sheet_title = sheet.is_a?(String) ? sheet : sheet.properties.title
+      values = multiple_sheet_values[sheet_title]
     end
     self.schema = self.create_schema(values[0])
     values[1..-1].map.with_index do |row, index|
-      new(schema: self.schema, row_values: row, row_num: index+2, sheet: sheet)
+      new(schema: self.schema, 
+          row_values: row, 
+          row_num: index+2, 
+          spreadsheet_id: spreadsheet_id, 
+          sheet: sheet,
+          major_dimension: major_dimension)
     end
   end
 
+  def write_attribute(key, value)
+    self.send("#{key}=", value)
+  end
   def set_attributes(values)
     values.each do |key, value|
-      self.send("#{key}=", value)
+      self.write_attribute(key, value)
     end
     self
   end
