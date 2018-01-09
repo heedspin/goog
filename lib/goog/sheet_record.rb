@@ -30,6 +30,10 @@ class Goog::SheetRecord
     @schema || self.class.schema
   end
 
+  def changes
+    @changes ||= []
+  end
+
   def a1(column)
     index = column.is_a?(Symbol) ? self.schema[column] : column
     raise "Unknown column #{column}" if index.nil?
@@ -62,7 +66,7 @@ class Goog::SheetRecord
   def set_row_value(key, value)
     previous_value = self.get_row_value(key)
     if previous_value != value
-      (@changes ||= []).push [key, previous_value, value]
+      self.changes.push [key, previous_value, value]
     end
     if @row_values
       if index = self.schema[key]
@@ -76,16 +80,12 @@ class Goog::SheetRecord
   end
 
   def changes_to_s
-    if @changes.nil?
-      ''
-    else
-      @changes.map { |key, previous_value, new_value|
-        "#{key} #{previous_value} => #{new_value}"
-      }.join(', ')
-    end
+    self.changes.map { |key, previous_value, new_value|
+      "#{key} #{previous_value} => #{new_value}"
+    }.join(', ')
   end
   def changed?
-    @changes.present?
+    self.changes.size > 0
   end
 
   def self.ensure_schema(spreadsheet_id: nil, sheet: nil, major_dimension: :rows)
@@ -196,9 +196,9 @@ class Goog::SheetRecord
     if @row_values
       raise NoMethodError.new("Schema not loaded") if self.schema.nil?
       if mid[-1] == '='
-        mid = mid[0..-2].to_sym
+        mid = mid[0..-2]
       end
-      self.schema.member?(mid)
+      self.schema.member?(mid.to_sym)
     else
       true
     end
