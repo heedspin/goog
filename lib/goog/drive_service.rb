@@ -2,14 +2,14 @@
 require 'plutolib/logger_utils'
 require 'google/apis/drive_v3'
 
-module Goog::DriveUtils
-  def current_drive
-    if @current_drive.nil?
-      raise "No authorizer established" unless Goog::Authorizer.established?
-      @current_drive = Google::Apis::DriveV3::DriveService.new
-      @current_drive.authorization = Goog::Authorizer.authorization
-    end
-    @current_drive
+class Goog::DriveService
+  include Plutolib::LoggerUtils
+  include Goog::Retry
+  
+  attr_accessor :drive
+  def initialize(authorization)
+    @drive = Google::Apis::DriveV3::DriveService.new
+    @drive.authorization = authorization
   end
 
   # Returns nil on failure.  Permission id on success.
@@ -20,10 +20,22 @@ module Goog::DriveUtils
     writer_emails.each do |email|
       permission = { type: 'user', role: 'writer', email_address: email }
       goog_retries do
-        result.push self.current_drive.create_permission(file_id, permission, fields: 'id')
+        result.push @drive.create_permission(file_id, permission, fields: 'id')
       end
     end    
     return result.size == 1 ? result.first : result
+  end
+
+  def get_permission(file, permission, fields: 'display_name, email_address')
+    goog_retries do
+      @drive.get_permission(file.id, permission.id, fields: fields)
+    end
+  end
+
+  def list_permissions(file)
+    goog_retries do
+      @drive.list_permissions(file.id).permissions
+    end
   end
 
   def build_drive_utils_query(query, parent_folder_id: nil, file_type: nil)
@@ -38,11 +50,20 @@ module Goog::DriveUtils
     end
   end
 
+  def fetch_all(&block)
+    @drive.fetch_all(items: :files) do |page_token|
+      goog_retries do 
+        @drive.list_files(corpora: 'user', include_team_drive_items: false)
+      end
+    end
+  end
+
   def get_files_containing(containing, parent_folder_id: nil, file_type: :file)
-    query = ["name contains '#{containing}'"]
+    query = [] 
+    query.push("name contains '#{containing}'") if containing
     self.build_drive_utils_query(query, parent_folder_id: parent_folder_id, file_type: file_type)
     goog_retries do
-      result = self.current_drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
+      result = @drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
       return result.files
     end
   end
@@ -60,7 +81,7 @@ module Goog::DriveUtils
     query = ["name = '#{name}'"]
     self.build_drive_utils_query(query, parent_folder_id: parent_folder_id, file_type: file_type)
     goog_retries do
-      result = self.current_drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
+      result = @drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
       return result.files
     end
   end
@@ -75,7 +96,7 @@ module Goog::DriveUtils
     end
     file_id = nil
     goog_retries do
-      file_id = self.current_drive.create_file(file_metadata, fields: 'id').try(:id)
+      file_id = @drive.create_file(file_metadata, fields: 'id').try(:id)
     end
     if writer_emails
       self.add_writer_permission(file_id: file_id, email_address: writer_emails)
@@ -85,15 +106,15 @@ module Goog::DriveUtils
 
   def get_files_in_folder(parent_folder_id)
     goog_retries do
-      result = self.current_drive.list_files(corpora: 'user', q: ["\"#{parent_folder_id}\" in parents"])
+      result = @drive.list_files(corpora: 'user', q: ["\"#{parent_folder_id}\" in parents"])
       return result.files
     end
   end
 
   def add_file_to_folder(file_id:, folder_id:)
-    previous_parents = self.current_drive.get_file(file_id, fields: 'parents').parents.join(',')
+    previous_parents = @drive.get_file(file_id, fields: 'parents').parents.join(',')
     goog_retries do
-      self.current_drive.update_file(file_id,
+      @drive.update_file(file_id,
                                      add_parents: folder_id,
                                      remove_parents: previous_parents,
                                      fields: 'id, parents')
@@ -104,7 +125,7 @@ module Goog::DriveUtils
   def delete_files_containing(containing, parent_folder_id: nil, file_type: :file)
     self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: file_type).each do |file|
       begin
-        self.current_drive.delete_file(file.id)
+        @drive.delete_file(file.id)
         log "Deleted #{file.name}"
       rescue Google::Apis::ClientError => e
         log_error "Failed to delete #{file.name}"
@@ -121,7 +142,7 @@ module Goog::DriveUtils
     }
     if existing_file_id
       goog_retries do
-        file_id = self.current_drive.update_file(existing_file_id,
+        file_id = @drive.update_file(existing_file_id,
                                                  file_metadata,
                                                  fields: 'id',
                                                  upload_source: path_to_odt,
@@ -129,7 +150,7 @@ module Goog::DriveUtils
       end
     else
       goog_retries do
-        file_id = self.current_drive.create_file(file_metadata,
+        file_id = @drive.create_file(file_metadata,
                                                  fields: 'id',
                                                  upload_source: path_to_odt,
                                                  content_type: 'application/vnd.oasis.opendocument.text').try(:id)
@@ -146,7 +167,7 @@ module Goog::DriveUtils
 
   # https://developers.google.com/drive/v3/web/manage-downloads
   def download_document_to_odt(file_id, download_path)
-    self.current_drive.export_file(file_id,
+    @drive.export_file(file_id,
                                    'application/vnd.oasis.opendocument.text',
                                     download_dest: download_path)
     true

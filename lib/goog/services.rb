@@ -1,8 +1,10 @@
 # https://github.com/google/google-auth-library-ruby
-module Goog::Authorizer
+module Goog::Services
   include Goog::Retry
   class << self
     attr_accessor :authorization
+    attr_accessor :drive
+    attr_accessor :sheets
   end
 
   # Returns current authorizer
@@ -19,7 +21,25 @@ module Goog::Authorizer
     self.authorization = nil
   end
 
-  def self.established?
+  def self.authorized?
     self.authorization.present?
   end
+
+  def self.drive
+    if @drive.nil?
+      raise "No authorizer established" unless self.authorized?
+      @drive = Goog::DriveService.new(self.authorization)
+    end
+    @drive
+  end
+
+  def self.sheets
+    if @sheets.nil?
+      raise "No authorizer established" unless self.authorized?
+      @sheets = Goog::SheetsService.new(self.authorization)
+    end
+    @sheets
+  end
+
+
 end

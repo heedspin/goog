@@ -1,11 +1,20 @@
 # https://developers.google.com/sheets/api/
 require 'google/apis/sheets_v4'
+require 'plutolib/logger_utils'
 
-module Goog::SpreadsheetUtils
+class Goog::SheetsService
+  include Plutolib::LoggerUtils
+  include Goog::Retry
+  include Goog::ColumnToLetter
+  attr_accessor :sheets
+  def initialize(authorization)
+    @sheets = Google::Apis::SheetsV4::SheetsService.new
+    @sheets.authorization = authorization
+  end
   def create_spreadsheet(title:, writer_emails: nil)
     spreadsheet = nil
     goog_retries do
-      spreadsheet = self.current_sheets_service.create_spreadsheet
+      spreadsheet = @sheets.create_spreadsheet
     end
     if self.rename_spreadsheet(spreadsheet_id: spreadsheet.spreadsheet_id, title: title)
       if writer_emails
@@ -13,7 +22,7 @@ module Goog::SpreadsheetUtils
           writer_emails = [writer_emails]
         end
         writer_emails.each do |email_address|
-          self.add_writer_permission(file_id: spreadsheet.spreadsheet_id, email_address: email_address)
+          Goog::Services.drive.add_writer_permission(file_id: spreadsheet.spreadsheet_id, email_address: email_address)
         end
       end
     end
@@ -30,7 +39,7 @@ module Goog::SpreadsheetUtils
       }
     })
     goog_retries do
-      response = self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, 
+      response = @sheets.batch_update_spreadsheet(spreadsheet_id, 
                                                                       {requests: requests}, 
                                                                       {})
       response.spreadsheet_id.present?
@@ -46,33 +55,22 @@ module Goog::SpreadsheetUtils
       }
     })
     goog_retries do
-      response = self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, 
+      response = @sheets.batch_update_spreadsheet(spreadsheet_id, 
                                                                       {requests: requests}, 
                                                                       {})
       response.spreadsheet_id.present?
     end
   end
 
-  def current_sheets_service
-    if @current_sheets_service.nil?
-      raise "No authorizer established" unless Goog::Authorizer.established?
-      @current_sheets_service = Google::Apis::SheetsV4::SheetsService.new
-      @current_sheets_service.authorization = Goog::Authorizer.authorization
-    end
-    @current_sheets_service
-  end
-
   def get_spreadsheet(spreadsheet_id)
     goog_retries do
-      self.current_sheets_service.get_spreadsheet(spreadsheet_id,
-                                                  fields: 'sheets.properties')
+      @sheets.get_spreadsheet(spreadsheet_id, fields: 'sheets.properties')
     end
   end
 
   def get_sheets(spreadsheet_id)
     goog_retries do
-      result = self.current_sheets_service.get_spreadsheet(spreadsheet_id,
-                                                           fields: 'sheets.properties')
+      result = @sheets.get_spreadsheet(spreadsheet_id, fields: 'sheets.properties')
       result.sheets
     end
   end
@@ -97,10 +95,10 @@ module Goog::SpreadsheetUtils
       range = self.get_sheet_range(sheet)
     end
     goog_retries do
-      result = self.current_sheets_service.get_spreadsheet_values(spreadsheet_id, 
-                                                                  range, 
-                                                                  value_render_option: value_render_option,
-                                                                  major_dimension: major_dimension)
+      result = @sheets.get_spreadsheet_values(spreadsheet_id, 
+                                              range, 
+                                              value_render_option: value_render_option,
+                                              major_dimension: major_dimension)
       result.values
     end
   end
@@ -110,9 +108,9 @@ module Goog::SpreadsheetUtils
     ranges ||= sheets.map { |s| self.get_sheet_range(s) }.compact
     raise "No ranges specified" unless ranges
     goog_retries do
-      result = self.current_sheets_service.batch_get_spreadsheet_values(spreadsheet_id, 
-                                                                        ranges: ranges, 
-                                                                        value_render_option: value_render_option)
+      result = @sheets.batch_get_spreadsheet_values(spreadsheet_id, 
+                                                    ranges: ranges, 
+                                                    value_render_option: value_render_option)
       result.value_ranges
     end
   end
@@ -120,7 +118,7 @@ module Goog::SpreadsheetUtils
   def clear_range(spreadsheet_id, range)
     goog_retries do
       request_body = Google::Apis::SheetsV4::ClearValuesRequest.new
-      result = self.current_sheets_service.clear_values(spreadsheet_id, range, request_body)
+      result = @sheets.clear_values(spreadsheet_id, range, request_body)
     end
   end
 
@@ -141,7 +139,7 @@ module Goog::SpreadsheetUtils
   def write_rows(sheet:, spreadsheet_id:, start_row:, values:)
     range = "#{sheet.properties.title}!A#{start_row}"
     goog_retries do
-      self.current_sheets_service.update_spreadsheet_value(spreadsheet_id,
+      @sheets.update_spreadsheet_value(spreadsheet_id,
                                                            range,
                                                            { values: values },
                                                            value_input_option: 'USER_ENTERED')
@@ -151,7 +149,7 @@ module Goog::SpreadsheetUtils
 
   def write_range(spreadsheet_id, range, values)
     goog_retries do
-      self.current_sheets_service.update_spreadsheet_value(spreadsheet_id,
+      @sheets.update_spreadsheet_value(spreadsheet_id,
                                                            range,
                                                            { values: values },
                                                            value_input_option: 'USER_ENTERED')
@@ -160,7 +158,7 @@ module Goog::SpreadsheetUtils
 
   def append_range(spreadsheet_id, range, values, major_dimension: :rows)
     goog_retries do
-      self.current_sheets_service.append_spreadsheet_value(spreadsheet_id,
+      @sheets.append_spreadsheet_value(spreadsheet_id,
                                                            range,
                                                            { values: values, major_dimension: major_dimension },
                                                            value_input_option: 'USER_ENTERED')
@@ -169,7 +167,7 @@ module Goog::SpreadsheetUtils
 
   def batch_write_ranges(spreadsheet_id, data, major_dimension: :rows)    
     goog_retries do
-      self.current_sheets_service.batch_update_values(spreadsheet_id, 
+      @sheets.batch_update_values(spreadsheet_id, 
                                                       { value_input_option: 'USER_ENTERED', data: data, major_dimension: major_dimension },
                                                       { })
     end
@@ -198,7 +196,7 @@ module Goog::SpreadsheetUtils
       }
     })
     goog_retries do
-      self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, 
+      @sheets.batch_update_spreadsheet(spreadsheet_id, 
                                                            {requests: requests}, 
                                                            {})
     end
@@ -240,7 +238,7 @@ module Goog::SpreadsheetUtils
       }
     } ]
     goog_retries do
-      self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
     end
     true
   end
@@ -261,7 +259,7 @@ module Goog::SpreadsheetUtils
       }
     } ]
     goog_retries do
-      self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
     end
     true
   end
@@ -279,7 +277,7 @@ module Goog::SpreadsheetUtils
       }
     } ]
     goog_retries do
-      self.current_sheets_service.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
     end
     true
   end
@@ -287,7 +285,7 @@ module Goog::SpreadsheetUtils
   def copy_spreadsheet(spreadsheet_id, new_name: nil, writer_emails: nil, destination_folder_id: nil)
     new_file = nil
     goog_retries do
-      new_file = self.current_drive.copy_file(spreadsheet_id)
+      new_file = Goog::Services.drive.drive.copy_file(spreadsheet_id)
     end
     if new_name
       # Renames the spreadsheet
@@ -299,16 +297,16 @@ module Goog::SpreadsheetUtils
         }
       })
       goog_retries do
-        self.current_sheets_service.batch_update_spreadsheet(new_file.id, 
+        @sheets.batch_update_spreadsheet(new_file.id, 
                                                              {requests: requests},
                                                              {})
       end
     end
     if writer_emails
-      self.add_writer_permission(file_id: new_file.id, email_address: writer_emails) || (return false)
+      Goog::Services.drive.add_writer_permission(file_id: new_file.id, email_address: writer_emails) || (return false)
     end
     if destination_folder_id
-      self.add_file_to_folder(file_id: new_file.id, folder_id: destination_folder_id) || (return false)
+      Goog::Services.drive.add_file_to_folder(file_id: new_file.id, folder_id: destination_folder_id) || (return false)
     end
     new_file
   end
@@ -320,32 +318,13 @@ module Goog::SpreadsheetUtils
       false
     else
       goog_retries do
-        self.current_drive.update_file(sheet_id,
-                                       add_parents: destination_folder_id,
-                                       remove_parents: previous_parents.join(','),
-                                       fields: 'id, parents')
+        Goog::Services.drive.update_file(sheet_id,
+                                         add_parents: destination_folder_id,
+                                         remove_parents: previous_parents.join(','),
+                                         fields: 'id, parents')
       end
       true
     end
-  end
-
-  # https://stackoverflow.com/questions/21229180/convert-column-index-into-corresponding-column-letter
-  def column_to_letter(column)
-    letter = ''
-    while (column > 0)
-      temp = (column - 1) % 26
-      letter = (temp + 65).chr + letter
-      column = (column - temp - 1) / 26
-    end
-    letter
-  end
-  def letter_to_column(letter)
-    column = 0
-    length = letter.length
-    for i in 0..(length-1)
-      column += (letter[i].ord - 64) * (26 ** (length - i - 1))
-    end
-    column
   end
 
   def get_sheet_range(sheet_properties, columns: nil)

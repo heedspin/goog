@@ -1,8 +1,9 @@
 module Goog
 end
 
-require 'goog/drive_utils'
-require 'goog/spreadsheet_utils'
 require 'goog/retry'
 require 'goog/date_utils'
-require 'goog/authorizer'
+require 'goog/column_to_letter'
+require 'goog/services'
+require 'goog/drive_service'
+require 'goog/sheets_service'

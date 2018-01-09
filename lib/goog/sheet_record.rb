@@ -2,10 +2,9 @@ require 'goog/no_schema_error'
 require 'goog/sheet_record_collection'
 
 class Goog::SheetRecord
+  include Goog::ColumnToLetter
   class << self
     attr_accessor :schema
-    # HERE: Needs to be global
-    attr_accessor :connection
   end
 
   attr :row_values
@@ -16,7 +15,6 @@ class Goog::SheetRecord
   attr :schema
   attr :changes
   attr :major_dimension
-  include Goog::SpreadsheetUtils
 
   def initialize(schema: nil, row_values: nil, row_num: nil, sheet: nil, spreadsheet_id: nil, major_dimension: nil)
     @schema = schema || self.class.schema
@@ -34,12 +32,13 @@ class Goog::SheetRecord
 
   def a1(column)
     index = column.is_a?(Symbol) ? self.schema[column] : column
+    raise "Unknown column #{column}" if index.nil?
     result = []
     if @sheet
-      result.push @sheet.properties.title + '!'
+      result.push (@sheet.is_a?(String) ? @sheet : @sheet.properties.title) + '!'
     end
     if @major_dimension.nil? or (@major_dimension == :rows)
-      result.push self.column_to_letter(index+1)
+      result.push Goog::Services.sheets.column_to_letter(index+1)
       result.push self.row_num.to_s
     else
       result.push self.column_to_letter(self.row_num)
@@ -135,7 +134,7 @@ class Goog::SheetRecord
   end
 
   def save
-    self.class.connection.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
+    Goog::Services.sheets.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
   end
 
   def self.create_schema(header_row)
@@ -150,29 +149,32 @@ class Goog::SheetRecord
     result
   end
 
-  def self.load_schema(spreadsheet_id, sheet: nil, major_dimension: :rows)
-    if sheet
-      sheet = self.connection.get_sheet_by_name(spreadsheet_id, sheet) if sheet.is_a?(String)
-    else
-      sheet = self.connection.get_sheets(spreadsheet_id).first
-    end
+  def self.load_schema(spreadsheet_id, sheet: nil, value_render_option: :unformatted_value, major_dimension: :rows)
     range = if major_dimension == :rows
-      'A:A'
-    else
       '1:1'
+    else
+      'A:A'
     end
-    values = self.connection.get_range(spreadsheet_id, range, sheet: sheet, value_render_option: value_render_option, major_dimension: major_dimension)
+    values = Goog::Services.sheets.get_range(spreadsheet_id, range, sheet: sheet, value_render_option: value_render_option, major_dimension: major_dimension)
     self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
   end
 
   def self.find(spreadsheet_id, range: nil, sheet: nil, value_render_option: :unformatted_value, major_dimension: :rows)
     if sheet
-      sheet = self.connection.get_sheet_by_name(spreadsheet_id, sheet) if sheet.is_a?(String)
+      sheet = Goog::Services.sheets.get_sheet_by_name(spreadsheet_id, sheet) if sheet.is_a?(String)
     else
-      sheet = self.connection.get_sheets(spreadsheet_id).first
+      sheet = Goog::Services.sheets.get_sheets(spreadsheet_id).first
     end
-    values = self.connection.get_range(spreadsheet_id, range, sheet: sheet, major_dimension: major_dimension)
-    self.schema = self.create_schema(values[0])
+    values = Goog::Services.sheets.get_range(spreadsheet_id, range, sheet: sheet, major_dimension: major_dimension)
+    self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
+  end
+
+  def self.find_all(spreadsheet_id, sheet: nil, value_render_option: :unformatted_value, major_dimension: :rows)
+    if sheet
+      sheet = Goog::Services.sheets.get_sheet_by_name(spreadsheet_id, sheet)
+    end
+    values = Goog::Services.sheets.get_range(spreadsheet_id, sheet: sheet, value_render_option: value_render_option, major_dimension: major_dimension)
+    self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
   end
 
   def self.to_collection(values: nil, spreadsheet_id: nil, sheet: nil, multiple_sheet_values: nil)
@@ -248,7 +250,7 @@ class Goog::SheetRecord
 
     def #{key}=(value)
       value = #{klass}.to_object(value)
-      self.set_row_value :#{key}, value.name
+      self.set_row_value :#{key}, value.try(:name)
     end
     RUBY
   end
