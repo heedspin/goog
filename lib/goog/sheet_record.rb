@@ -115,24 +115,6 @@ class Goog::SheetRecord
     @errors ||= []
   end
 
-  def method_missing(mid, *args)
-    raise NoMethodError.new("Schema not loaded") if @row_values and self.schema.nil?
-    if mid[-1] == '='
-      mid = mid[0..-2].to_sym
-      raise NoMethodError.new("Unknown method #{mid}=") if @row_values and !self.schema.member?(mid)
-      self.set_row_value(mid, args[0])
-    else
-      mid = mid.to_sym
-      raise NoMethodError.new("Unknown method #{mid}") if @row_values and !self.schema.member?(mid)
-      self.get_row_value(mid)
-    end
-  end  
-
-  @@rename_columns = nil
-  def self.rename_columns(map)
-    @@rename_columns = map
-  end
-
   def save
     Goog::Services.sheets.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
   end
@@ -208,6 +190,28 @@ class Goog::SheetRecord
       self.write_attribute(key, value)
     end
     self
+  end
+
+  def respond_to?(mid)
+    self.schema.member?(mid)
+  end
+
+  def method_missing(mid, *args)
+    raise NoMethodError.new("Schema not loaded") if @row_values and self.schema.nil?
+    if mid[-1] == '='
+      mid = mid[0..-2].to_sym
+      raise NoMethodError.new("Unknown method #{mid}=") if @row_values and !self.schema.member?(mid)
+      self.set_row_value(mid, args[0])
+    else
+      mid = mid.to_sym
+      raise NoMethodError.new("Unknown method #{mid}") if @row_values and !self.schema.member?(mid)
+      self.get_row_value(mid)
+    end
+  end  
+
+  @@rename_columns = nil
+  def self.rename_columns(map)
+    @@rename_columns = map
   end
 
   def self.build(values)
