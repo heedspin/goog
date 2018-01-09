@@ -193,7 +193,15 @@ class Goog::SheetRecord
   end
 
   def respond_to?(mid)
-    self.schema.member?(mid)
+    if @row_values
+      raise NoMethodError.new("Schema not loaded") if self.schema.nil?
+      if mid[-1] == '='
+        mid = mid[0..-2].to_sym
+      end
+      self.schema.member?(mid)
+    else
+      true
+    end
   end
 
   def method_missing(mid, *args)
