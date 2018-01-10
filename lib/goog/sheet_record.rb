@@ -182,6 +182,10 @@ class Goog::SheetRecord
     end
   end
 
+  def _rounded(attribute)
+    (self.send(attribute) * 100).round / 100.0
+  end
+
   def write_attribute(key, value)
     self.send("#{key}=", value)
   end
