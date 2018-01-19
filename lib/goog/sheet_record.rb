@@ -1,4 +1,5 @@
 require 'goog/no_schema_error'
+require 'goog/no_spreadsheet_error'
 require 'goog/sheet_record_collection'
 
 class Goog::SheetRecord
@@ -116,6 +117,7 @@ class Goog::SheetRecord
   end
 
   def save
+    raise Goog::NoSpreadsheetError unless self.spreadsheet_id
     Goog::Services.sheets.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
   end
 
@@ -281,6 +283,49 @@ class Goog::SheetRecord
       end
       value
     end
+    RUBY
+  end
+
+  # This is separate to keep the special characters straight during class_eval.
+  def parse_hyperlink_value(value)
+    if value =~ /=HYPERLINK\("([^"]+)","([^"]+)"\)/
+      value, link = $2, $1
+    else
+      value
+    end
+  end    
+
+  def self.hyperlink_attribute(key)
+    self.class_eval <<-RUBY
+      def #{key}_parts
+        value = self.get_row_value(:#{key})
+        return nil unless value.present?
+        self.parse_hyperlink_value(value)
+      end
+      def #{key}
+        value, link = self.#{key}_parts
+        value
+      end
+      def #{key}_hyperlink
+        self.get_row_value(:#{key})
+      end
+      def #{key}_url
+        value, link = self.#{key}_parts
+        link
+      end
+      def #{key}_hyperlinked?
+        value = self.get_row_value(:#{key})
+        return false if value.nil?
+        value.include?('HYPERLINK')
+      end
+      def set_#{key}(value, link=nil)
+        if link
+          link_value = '=HYPERLINK("' + link + '","' + value + '")'
+          self.set_row_value(:#{key}, link_value)
+        else
+          self.set_row_value(:#{key}, value)
+        end
+      end
     RUBY
   end
 end

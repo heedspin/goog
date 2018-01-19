@@ -298,8 +298,8 @@ class Goog::SheetsService
       })
       goog_retries do
         @sheets.batch_update_spreadsheet(new_file.id, 
-                                                             {requests: requests},
-                                                             {})
+                                         {requests: requests},
+                                         {})
       end
     end
     if writer_emails
@@ -331,23 +331,6 @@ class Goog::SheetsService
     return nil unless sheet_properties
     column_count = columns ? columns : sheet_properties.properties.grid_properties.column_count
     "#{sheet_properties.properties.title}!A1:#{self.column_to_letter(column_count)}#{sheet_properties.properties.grid_properties.row_count}"
-  end
-
-  # Returns [Sheet, Range1, Range2]
-  def get_range_parts(range)
-    if range =~ /([' a-zA-Z]+!)?([A-Z]+\d+):([A-Z]+\d+)/
-      sheet = $1
-      range1 = $2
-      range2 = $3
-      if sheet
-        sheet = sheet[0..sheet.size-2]
-        if sheet =~ /'(.+)'/
-          sheet = $1
-        end
-      end
-      return [sheet, range1, range2]
-    end
-    nil
   end
 
   def self.included base

@@ -17,4 +17,22 @@ module Goog::ColumnToLetter
     end
     column
   end
+
+  # Returns [Sheet, Range1, Range2]
+  def get_range_parts(range)
+    if range =~ /([' a-zA-Z]+!)?([A-Z]+\d+):([A-Z]+\d+)/
+      sheet = $1
+      range1 = $2
+      range2 = $3
+      if sheet
+        sheet = sheet[0..sheet.size-2]
+        if sheet =~ /'(.+)'/
+          sheet = $1
+        end
+      end
+      return [sheet, range1, range2]
+    end
+    nil
+  end
+
 end
