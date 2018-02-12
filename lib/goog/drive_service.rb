@@ -125,7 +125,9 @@ class Goog::DriveService
   def delete_files_containing(containing, parent_folder_id: nil, file_type: :file)
     self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: file_type).each do |file|
       begin
-        @drive.delete_file(file.id)
+        goog_retries do
+          @drive.delete_file(file.id)
+        end
         log "Deleted #{file.name}"
       rescue Google::Apis::ClientError => e
         log_error "Failed to delete #{file.name}"

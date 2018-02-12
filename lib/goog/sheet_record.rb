@@ -13,7 +13,6 @@ class Goog::SheetRecord
   attr :row_num
   attr :spreadsheet_id
   attr :sheet
-  attr :schema
   attr :changes
   attr :major_dimension
 
@@ -29,6 +28,9 @@ class Goog::SheetRecord
 
   def schema
     @schema || self.class.schema
+  end
+  def schema=(value)
+    @schema = value
   end
 
   def changes
@@ -47,7 +49,7 @@ class Goog::SheetRecord
       result.push self.row_num.to_s
     else
       result.push self.column_to_letter(self.row_num)
-      result.push (index + 1).to_s
+      result.push (index+1).to_s
     end
     result.join
   end
@@ -66,6 +68,7 @@ class Goog::SheetRecord
 
   def set_row_value(key, value)
     previous_value = self.get_row_value(key)
+    return value if ((previous_value.nil? and (value == '')) or ((previous_value == '') and value.nil?))
     if previous_value != value
       self.changes.push [key, previous_value, value]
     end
@@ -118,7 +121,14 @@ class Goog::SheetRecord
 
   def save
     raise Goog::NoSpreadsheetError unless self.spreadsheet_id
-    Goog::Services.sheets.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
+    if self.row_num
+      Goog::Services.sheets.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
+    else
+      sheet_name = (@sheet.is_a?(String) ? @sheet : @sheet.properties.title)
+      Goog::Services.sheets.append_range(self.spreadsheet_id, 
+                                         "#{sheet_name}!A1:A1",
+                                         [self.row_values])
+    end
   end
 
   def self.create_schema(header_row)
@@ -149,8 +159,11 @@ class Goog::SheetRecord
     else
       sheet = Goog::Services.sheets.get_sheets(spreadsheet_id).first
     end
-    values = Goog::Services.sheets.get_range(spreadsheet_id, range, sheet: sheet, major_dimension: major_dimension)
-    self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
+    if values = Goog::Services.sheets.get_range(spreadsheet_id, range, sheet: sheet, major_dimension: major_dimension)
+      self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
+    else
+      []
+    end
   end
 
   def self.find_all(spreadsheet_id, sheet: nil, value_render_option: :unformatted_value, major_dimension: :rows)
@@ -173,7 +186,9 @@ class Goog::SheetRecord
       sheet_title = sheet.is_a?(String) ? sheet : sheet.properties.title
       values = multiple_sheet_values[sheet_title]
     end
-    self.schema = self.create_schema(values[0])
+    if self.schema.nil?
+      self.schema = self.create_schema(values[0])
+    end
     values[1..-1].map.with_index do |row, index|
       new(schema: self.schema, 
           row_values: row, 
@@ -310,12 +325,20 @@ class Goog::SheetRecord
         value, link = self.#{key}_parts
         value
       end
+      def #{key}=(new_value)
+        value, link = self.#{key}_parts
+        self.set_#{key}(new_value, link)
+      end
       def #{key}_hyperlink
         self.get_row_value(:#{key})
       end
       def #{key}_url
         value, link = self.#{key}_parts
         link
+      end
+      def #{key}_url=(new_url)
+        value, link = self.#{key}_parts
+        self.set_#{key}(value, new_url)
       end
       def #{key}_hyperlinked?
         value = self.get_row_value(:#{key})
@@ -329,6 +352,9 @@ class Goog::SheetRecord
         else
           self.set_row_value(:#{key}, value)
         end
+      end
+      def unlink_#{key}
+        self.set_#{key}(self.#{key})
       end
     RUBY
   end
