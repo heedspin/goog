@@ -253,10 +253,6 @@ class Goog::SheetRecord
     GOOGLE_EPOCH.advance(days: google_date)
   end
 
-  def self.looks_like_date?(value)
-    value.is_a?(String) && (value =~ /\d+\/\d+\/\d+/)
-  end
-
   def self.date_attribute(key)
     self.class_eval <<-RUBY
     def #{key}
@@ -365,4 +361,10 @@ class Goog::SheetRecord
       end
     RUBY
   end
+
+  protected
+
+  def looks_like_date?(value)
+    value.is_a?(String) && (value =~ /\d+\/\d+\/\d+/)
+  end  
 end
