@@ -68,7 +68,7 @@ class Goog::SheetRecord
 
   def set_row_value(key, value)
     previous_value = self.get_row_value(key)
-    return value if ((previous_value.nil? and (value == '')) or ((previous_value == '') and value.nil?))
+    return value if previous_value.blank? and value.blank?
     if previous_value != value
       self.changes.push [key, previous_value, value]
     end
