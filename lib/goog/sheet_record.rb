@@ -253,12 +253,16 @@ class Goog::SheetRecord
     GOOGLE_EPOCH.advance(days: google_date)
   end
 
+  def self.looks_like_date?(value)
+    value.is_a?(String) && (value =~ /\d+\/\d+\/\d+/)
+  end
+
   def self.date_attribute(key)
     self.class_eval <<-RUBY
     def #{key}
       value = self.get_row_value(:#{key})
       return nil unless value.present?
-      if value.is_a?(String) and (value =~ /\d+\/\d+\/\d+/)
+      if self.looks_like_date?(value)
         begin
           value = Date.strptime(value, '%m/%d/%Y')
         rescue ArgumentError
