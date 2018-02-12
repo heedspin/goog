@@ -258,8 +258,11 @@ class Goog::SheetRecord
     def #{key}
       value = self.get_row_value(:#{key})
       return nil unless value.present?
-      if value.is_a?(String)
-        value = Date.strptime(value, '%m/%d/%Y')
+      if value.is_a?(String) and (value =~ /\d+\/\d+\/\d+/)
+        begin
+          value = Date.strptime(value, '%m/%d/%Y')
+        rescue ArgumentError
+        end
       elsif value.is_a?(Integer)
         value = self.class.google_integer_to_date(value)
       end
