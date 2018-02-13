@@ -94,6 +94,9 @@ class Goog::SheetsService
       end
       range = self.get_sheet_range(sheet)
     end
+    if !range.include?('!') and sheet
+      range = "#{sheet.properties.title}!#{range}"
+    end
     goog_retries do
       result = @sheets.get_spreadsheet_values(spreadsheet_id, 
                                               range, 

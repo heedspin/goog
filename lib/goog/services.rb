@@ -5,6 +5,7 @@ module Goog::Services
     attr_accessor :authorization
     attr_accessor :drive
     attr_accessor :sheets
+    attr_accessor :session
   end
 
   # Returns current authorizer
