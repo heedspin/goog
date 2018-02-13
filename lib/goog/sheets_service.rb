@@ -77,7 +77,7 @@ class Goog::SheetsService
 
   def get_sheet_by_name(spreadsheet_id, name)
     self.get_sheets(spreadsheet_id).each do |sprop|
-      if sprop.properties.title.downcase == name.downcase
+      if sprop.try(:properties).try(:title).try(:downcase) == name.downcase
         return sprop
       end
     end
