@@ -164,14 +164,6 @@ class Goog::SheetRecord
     end
   end
 
-  def self.find_all(spreadsheet_id, sheet: nil, value_render_option: :unformatted_value, major_dimension: :rows)
-    if sheet
-      sheet = Goog::Services.sheets.get_sheet_by_name(spreadsheet_id, sheet)
-    end
-    values = Goog::Services.sheets.get_range(spreadsheet_id, sheet: sheet, value_render_option: value_render_option, major_dimension: major_dimension)
-    self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
-  end
-
   def self.to_collection(values: nil, spreadsheet_id:, sheet:, multiple_sheet_values: nil)
     Goog::SheetRecordCollection.new self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, multiple_sheet_values: multiple_sheet_values)
   end
