@@ -54,13 +54,13 @@ class Goog::Session
 
   def profile_context_push(name)
     return unless @profiling
-    @profiling_history.push [@profiling_context.size, 'Begin Context: ' + @profiling_context.join(' / ')]
+    @profiling_history.push [@profiling_context.size, "Begin Context: #{name} [" + @profiling_context.join(' / ') + ']']
     @profiling_context.push(name)
   end
   def profile_context_pop
     return unless @profiling
-    @profiling_context.pop
-    @profiling_history.push [@profiling_context.size, 'End Context: ' + @profiling_context.join(' / ')]
+    name = @profiling_context.pop
+    @profiling_history.push [@profiling_context.size + 1, "End Context: #{name} [" + @profiling_context.join(' / ') + ']']
   end
   def profile_event(type, name)
     return unless @profiling
