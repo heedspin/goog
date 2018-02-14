@@ -13,7 +13,7 @@ class Goog::SheetsService
   end
   def create_spreadsheet(title:, writer_emails: nil)
     spreadsheet = nil
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#create_spreadsheet') do
       spreadsheet = @sheets.create_spreadsheet
     end
     if self.rename_spreadsheet(spreadsheet_id: spreadsheet.spreadsheet_id, title: title)
@@ -38,7 +38,7 @@ class Goog::SheetsService
         fields: 'title'
       }
     })
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#rename_spreadsheet') do
       response = @sheets.batch_update_spreadsheet(spreadsheet_id, 
                                                                       {requests: requests}, 
                                                                       {})
@@ -54,28 +54,31 @@ class Goog::SheetsService
         sheet_id: sheet.properties.sheet_id
       }
     })
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#turn_off_filters') do
       response = @sheets.batch_update_spreadsheet(spreadsheet_id, 
-                                                                      {requests: requests}, 
-                                                                      {})
+                                                  {requests: requests}, 
+                                                  {})
       response.spreadsheet_id.present?
     end
   end
 
   def get_spreadsheet(spreadsheet_id)
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#get_spreadsheet') do
       @sheets.get_spreadsheet(spreadsheet_id, fields: 'sheets.properties')
     end
   end
 
   def get_sheets(spreadsheet_id)
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#get_sheets', profile_name: spreadsheet_id) do
       result = @sheets.get_spreadsheet(spreadsheet_id, fields: 'sheets.properties')
       result.sheets
     end
   end
 
   def get_sheet_by_name(spreadsheet_id, name)
+    if Goog::Services.session.try(:profiling_enabled?)
+      Goog::Services.session.profile_event('Sheets#get_sheet_by_name', "#{spreadsheet_id} - #{name}")
+    end
     self.get_sheets(spreadsheet_id).each do |sprop|
       if sprop.try(:properties).try(:title).try(:downcase) == name.downcase
         return sprop
@@ -97,7 +100,7 @@ class Goog::SheetsService
     if !range.include?('!') and sheet
       range = "#{sheet.properties.title}!#{range}"
     end
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#get_range') do
       result = @sheets.get_spreadsheet_values(spreadsheet_id, 
                                               range, 
                                               value_render_option: value_render_option,
@@ -110,7 +113,7 @@ class Goog::SheetsService
     sheets ||= self.get_sheets(spreadsheet_id)
     ranges ||= sheets.map { |s| self.get_sheet_range(s) }.compact
     raise "No ranges specified" unless ranges
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#get_multiple_ranges') do
       result = @sheets.batch_get_spreadsheet_values(spreadsheet_id, 
                                                     ranges: ranges, 
                                                     value_render_option: value_render_option)
@@ -119,7 +122,7 @@ class Goog::SheetsService
   end
 
   def clear_range(spreadsheet_id, range)
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#clear_range') do
       request_body = Google::Apis::SheetsV4::ClearValuesRequest.new
       result = @sheets.clear_values(spreadsheet_id, range, request_body)
     end
@@ -141,35 +144,35 @@ class Goog::SheetsService
 
   def write_rows(sheet:, spreadsheet_id:, start_row:, values:)
     range = "#{sheet.properties.title}!A#{start_row}"
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#write_rows') do
       @sheets.update_spreadsheet_value(spreadsheet_id,
-                                                           range,
-                                                           { values: values },
-                                                           value_input_option: 'USER_ENTERED')
+                                       range,
+                                       { values: values },
+                                       value_input_option: 'USER_ENTERED')
     end
     true
   end
 
   def write_range(spreadsheet_id, range, values)
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#write_range') do
       @sheets.update_spreadsheet_value(spreadsheet_id,
-                                                           range,
-                                                           { values: values },
-                                                           value_input_option: 'USER_ENTERED')
+                                       range,
+                                       { values: values },
+                                       value_input_option: 'USER_ENTERED')
     end
   end
 
   def append_range(spreadsheet_id, range, values, major_dimension: :rows)
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#append_range') do
       @sheets.append_spreadsheet_value(spreadsheet_id,
-                                                           range,
-                                                           { values: values, major_dimension: major_dimension },
-                                                           value_input_option: 'USER_ENTERED')
+                                       range,
+                                       { values: values, major_dimension: major_dimension },
+                                       value_input_option: 'USER_ENTERED')
     end
   end
 
   def batch_write_ranges(spreadsheet_id, data, major_dimension: :rows)    
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#batch_write_ranges') do
       @sheets.batch_update_values(spreadsheet_id, 
                                                       { value_input_option: 'USER_ENTERED', data: data, major_dimension: major_dimension },
                                                       { })
@@ -198,10 +201,10 @@ class Goog::SheetsService
         inherit_before: false
       }
     })
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#insert_empty_rows') do
       @sheets.batch_update_spreadsheet(spreadsheet_id, 
-                                                           {requests: requests}, 
-                                                           {})
+                                       {requests: requests}, 
+                                       {})
     end
     true
   end
@@ -240,7 +243,7 @@ class Goog::SheetsService
         paste_type: 'PASTE_NORMAL'
       }
     } ]
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#cut_paste_rows') do
       @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
     end
     true
@@ -261,7 +264,7 @@ class Goog::SheetsService
         fields: 'note'
       }
     } ]
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#add_note') do
       @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
     end
     true
@@ -279,7 +282,7 @@ class Goog::SheetsService
         }
       }
     } ]
-    goog_retries do
+    goog_retries(profile_type: 'Sheets#delete_rows') do
       @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
     end
     true
@@ -299,7 +302,7 @@ class Goog::SheetsService
           fields: 'title'
         }
       })
-      goog_retries do
+    goog_retries(profile_type: 'Sheets#copy_spreadsheet') do
         @sheets.batch_update_spreadsheet(new_file.id, 
                                          {requests: requests},
                                          {})
@@ -320,7 +323,7 @@ class Goog::SheetsService
     if previous_parents.include?(destination_folder_id)
       false
     else
-      goog_retries do
+    goog_retries(profile_type: 'Sheets#move_sheet') do
         Goog::Services.drive.update_file(sheet_id,
                                          add_parents: destination_folder_id,
                                          remove_parents: previous_parents.join(','),

@@ -2,8 +2,8 @@ module Goog
   module Retry
     GOOG_MAX_RETRIES=10
 
-    def goog_retries(&block)
-      self.class.goog_retries(&block)
+    def goog_retries(args={}, &block)
+      self.class.goog_retries(args, &block)
     end
 
     def self.included base
@@ -19,7 +19,10 @@ module Goog
           end
         end
 
-        def self.goog_retries(&block)
+        def self.goog_retries(args={}, &block)
+          if args[:profile_type] and Goog::Services.session.try(:profiling_enabled?)
+            Goog::Services.session.profile_event(args[:profile_type], args[:profile_name])
+          end
           attempts = 0
           while ((attempts += 1) <= Goog::Retry::GOOG_MAX_RETRIES)
             begin
