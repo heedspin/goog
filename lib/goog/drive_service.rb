@@ -60,7 +60,7 @@ class Goog::DriveService
 
   def get_files_containing(containing, parent_folder_id: nil, file_type: :file)
     query = [] 
-    query.push("name contains '#{containing}'") if containing
+    query.push("name contains '#{containing}'") if containing.present?
     self.build_drive_utils_query(query, parent_folder_id: parent_folder_id, file_type: file_type)
     goog_retries do
       result = @drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
@@ -135,6 +135,16 @@ class Goog::DriveService
     end
   end
 
+  def rename_file(file_id, new_name)
+    file_id = file_id.id if file_id.is_a?(Google::Apis::DriveV3::File)
+    file_metadata = {
+      name: new_name,
+    }
+    goog_retries do
+      @drive.update_file(file_id, file_metadata, fields: 'id').try(:id)
+    end
+  end
+
   # Google Drive MIME Types: https://developers.google.com/drive/v3/web/mime-types
   def upload_odt_to_doc(existing_file_id: nil, file_name: nil, folder_id: nil, path_to_odt: , writer_emails: nil)
     file_id = nil
@@ -145,17 +155,17 @@ class Goog::DriveService
     if existing_file_id
       goog_retries do
         file_id = @drive.update_file(existing_file_id,
-                                                 file_metadata,
-                                                 fields: 'id',
-                                                 upload_source: path_to_odt,
-                                                 content_type: 'application/vnd.oasis.opendocument.text').try(:id)
+                                     file_metadata,
+                                     fields: 'id',
+                                     upload_source: path_to_odt,
+                                     content_type: 'application/vnd.oasis.opendocument.text').try(:id)
       end
     else
       goog_retries do
         file_id = @drive.create_file(file_metadata,
-                                                 fields: 'id',
-                                                 upload_source: path_to_odt,
-                                                 content_type: 'application/vnd.oasis.opendocument.text').try(:id)
+                                     fields: 'id',
+                                     upload_source: path_to_odt,
+                                     content_type: 'application/vnd.oasis.opendocument.text').try(:id)
       end
       if folder_id
         self.add_file_to_folder(file_id: file_id, folder_id: folder_id) || (return false)
