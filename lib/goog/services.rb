@@ -20,6 +20,7 @@ module Goog::Services
 
   def self.disconnect
     self.authorization = nil
+    @drive = @sheets = nil
   end
 
   def self.authorized?
