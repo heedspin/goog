@@ -1,7 +1,8 @@
 require 'goog/no_schema_error'
 require 'goog/no_spreadsheet_error'
 require 'goog/sheet_record_collection'
-require 'goog/no_session'
+require 'goog/no_session_error'
+require 'goog/sheet_not_found_error'
 
 class Goog::SheetRecord
   include Goog::ColumnToLetter
@@ -30,7 +31,7 @@ class Goog::SheetRecord
 
   def schema
     if @schema.nil?
-      raise Goog::NoSession if Goog::Services.session.nil?
+      raise Goog::NoSessionError if Goog::Services.session.nil?
       @schema = Goog::Services.session.get_schema(spreadsheet_id: @spreadsheet_id, sheet: @sheet)
       if @schema.nil?
         @schema = self.load_schema
