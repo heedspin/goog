@@ -152,11 +152,10 @@ class Goog::SheetRecord
   end
 
   def self.find(spreadsheet_id, range: nil, sheet: nil, value_render_option: :unformatted_value, major_dimension: :rows)
-    if sheet
-      sheet = Goog::Services.sheets.get_sheet_by_name(spreadsheet_id, sheet) if sheet.is_a?(String)
-    else
-      sheet = Goog::Services.sheets.get_sheets(spreadsheet_id).first
+    if sheet.is_a?(String)
+      sheet = Goog::Services.sheets.get_sheet_by_name(spreadsheet_id, sheet) || (raise Goog::SheetNotFoundError)
     end
+    sheet ||= Goog::Services.sheets.get_sheets(spreadsheet_id).first
     if values = Goog::Services.sheets.get_range(spreadsheet_id, range, sheet: sheet, major_dimension: major_dimension)
       self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, major_dimension: major_dimension)
     else
