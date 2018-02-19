@@ -99,6 +99,7 @@ class Goog::SheetRecord
   end
 
   def set_row_value(key, value)
+    value = '' if value.nil?
     previous_value = self.get_row_value(key)
     return value if previous_value.blank? and value.blank?
     if previous_value != value
