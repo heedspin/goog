@@ -205,10 +205,12 @@ class Goog::SheetRecord
 
   def respond_to?(mid)
     if @row_values
-      if mid[-1] == '='
-        mid = mid[0..-2]
+      schema_mid = if mid[-1] == '='
+        mid[0..-2]
+      else
+        mid
       end
-      self.schema.member?(mid.to_sym)
+      self.schema.member?(schema_mid.to_sym) || super(mid)
     else
       true
     end
