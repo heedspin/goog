@@ -11,20 +11,13 @@ class Goog::SheetsService
     @sheets = Google::Apis::SheetsV4::SheetsService.new
     @sheets.authorization = authorization
   end
-  def create_spreadsheet(title:, writer_emails: nil)
+  def create_spreadsheet(title:, writer_emails: nil, owner_emails: nil)
     spreadsheet = nil
     goog_retries(profile_type: 'Sheets#create_spreadsheet') do
       spreadsheet = @sheets.create_spreadsheet
     end
     if self.rename_spreadsheet(spreadsheet_id: spreadsheet.spreadsheet_id, title: title)
-      if writer_emails
-        if writer_emails.is_a?(String)
-          writer_emails = [writer_emails]
-        end
-        writer_emails.each do |email_address|
-          Goog::Services.drive.add_writer_permission(file_id: spreadsheet.spreadsheet_id, email_address: email_address)
-        end
-      end
+      Goog::Services.drive.add_permissions(file_id: spreadsheet.spreadsheet_id, writer_emails: writer_emails, owner_emails: owner_emails)
     end
     spreadsheet
   end
@@ -288,7 +281,7 @@ class Goog::SheetsService
     true
   end
 
-  def copy_spreadsheet(spreadsheet_id, new_name: nil, writer_emails: nil, destination_folder_id: nil)
+  def copy_spreadsheet(spreadsheet_id, new_name: nil, writer_emails: nil, owner_emails: nil, destination_folder_id: nil)
     new_file = nil
     goog_retries do
       new_file = Goog::Services.drive.drive.copy_file(spreadsheet_id)
@@ -308,12 +301,10 @@ class Goog::SheetsService
                                          {})
       end
     end
-    if writer_emails
-      Goog::Services.drive.add_writer_permission(file_id: new_file.id, email_address: writer_emails) || (return false)
-    end
     if destination_folder_id
       Goog::Services.drive.add_file_to_folder(file_id: new_file.id, folder_id: destination_folder_id) || (return false)
     end
+    Goog::Services.drive.add_permissions(file_id: new_file.id, writer_emails: writer_emails, owner_emails: owner_emails)
     new_file
   end
 

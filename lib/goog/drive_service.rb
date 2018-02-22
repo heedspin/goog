@@ -13,6 +13,18 @@ class Goog::DriveService
   end
 
   # Returns nil on failure.  Permission id on success.
+  def add_permissions(file_id:, writer_emails: nil, owner_emails: nil)
+    result = []
+    if writer_emails
+      result.append self.add_writer_permission(file_id: file_id, email_address: writer_emails) 
+    end
+    if owner_emails
+      result.append self.add_owner_permission(file_id: file_id, email_address: owner_emails) 
+    end
+    result
+  end
+
+  # Returns nil on failure.  Permission id on success.
   def add_writer_permission(file_id:, email_address:)
     # https://developers.google.com/drive/v3/web/manage-sharing
     writer_emails = [email_address] if email_address.is_a?(String)
@@ -26,6 +38,19 @@ class Goog::DriveService
     return result.size == 1 ? result.first : result
   end
 
+  # Returns nil on failure.  Permission id on success.
+  def add_owner_permission(file_id:, email_address:)
+    # https://developers.google.com/drive/v3/web/manage-sharing
+    owner_emails = [email_address] if email_address.is_a?(String)
+    result = []
+    owner_emails.each do |email|
+      permission = { type: 'user', role: 'owner', email_address: email }
+      goog_retries do
+        result.push @drive.create_permission(file_id, permission, fields: 'id', transfer_ownership: true)
+      end
+    end    
+    return result.size == 1 ? result.first : result
+  end
   def get_permission(file, permission, fields: 'display_name, email_address')
     goog_retries do
       @drive.get_permission(file.id, permission.id, fields: fields)
@@ -86,7 +111,7 @@ class Goog::DriveService
     end
   end
 
-  def create_folder(name, parent_folder_id: nil, writer_emails: nil)
+  def create_folder(name, parent_folder_id: nil, writer_emails: nil, owner_emails: nil)
     file_metadata = {
       name: name,
       mime_type: 'application/vnd.google-apps.folder'
@@ -98,9 +123,7 @@ class Goog::DriveService
     goog_retries do
       file_id = @drive.create_file(file_metadata, fields: 'id').try(:id)
     end
-    if writer_emails
-      self.add_writer_permission(file_id: file_id, email_address: writer_emails)
-    end
+    self.add_permissions(file_id: file_id, writer_emails: writer_emails, owner_emails: owner_emails)
     file_id
   end
 
@@ -115,9 +138,9 @@ class Goog::DriveService
     previous_parents = @drive.get_file(file_id, fields: 'parents').parents.join(',')
     goog_retries do
       @drive.update_file(file_id,
-                                     add_parents: folder_id,
-                                     remove_parents: previous_parents,
-                                     fields: 'id, parents')
+                         add_parents: folder_id,
+                         remove_parents: previous_parents,
+                         fields: 'id, parents')
     end
     true
   end    
@@ -146,7 +169,7 @@ class Goog::DriveService
   end
 
   # Google Drive MIME Types: https://developers.google.com/drive/v3/web/mime-types
-  def upload_odt_to_doc(existing_file_id: nil, file_name: nil, folder_id: nil, path_to_odt: , writer_emails: nil)
+  def upload_odt_to_doc(existing_file_id: nil, file_name: nil, folder_id: nil, path_to_odt:, writer_emails: nil, owner_emails: nil)
     file_id = nil
     file_metadata = {
       name: file_name,
@@ -171,8 +194,8 @@ class Goog::DriveService
         self.add_file_to_folder(file_id: file_id, folder_id: folder_id) || (return false)
       end
     end
-    if writer_emails and file_id
-      self.add_writer_permission(file_id: file_id, email_address: writer_emails)
+    if file_id      
+      self.add_permissions(file_id: file_id, writer_emails: writer_emails, owner_emails: owner_emails)
     end
     file_id
   end
@@ -198,7 +221,7 @@ class Goog::DriveService
 
   # Returns new file id.
   # You do not need to specify shared folder and writer_emails.  If folder is shared, permissions are inherited.
-  def create_doc_from_template(source_file_id:, destination_folder_id: nil, destination_file_name:, destination_file_id: nil, query_replace_map:, writer_emails: nil)
+  def create_doc_from_template(source_file_id:, destination_folder_id: nil, destination_file_name:, destination_file_id: nil, query_replace_map:, writer_emails: nil, owner_emails: nil)
     file_id = nil
     Dir.mktmpdir do |dir|
       odt_file = File.join(dir, 'doc.odt')
@@ -210,13 +233,10 @@ class Goog::DriveService
         self.drive_shell_command("sed -i 's/#{quote_sed_string(from)}/#{quote_sed_string(to)}/g' #{content_file}") || (return false)
       end
       self.drive_shell_command("cd #{dir} ; zip #{odt_file} content.xml") || (return false)
-      file_id = self.upload_odt_to_doc(existing_file_id: destination_file_id, file_name: destination_file_name, path_to_odt: odt_file, writer_emails: writer_emails)
+      file_id = self.upload_odt_to_doc(existing_file_id: destination_file_id, file_name: destination_file_name, path_to_odt: odt_file, writer_emails: writer_emails, owner_emails: owner_emails)
     end
     if destination_folder_id
       self.add_file_to_folder(file_id: file_id, folder_id: destination_folder_id) || (return false)
-    end
-    if writer_emails
-      self.add_writer_permission(file_id: file_id, email_address: writer_emails)
     end
     return file_id
   end

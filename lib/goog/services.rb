@@ -1,12 +1,17 @@
+require 'plutolib/logger_utils'
 # https://github.com/google/google-auth-library-ruby
 module Goog::Services
   include Goog::Retry
+  include Plutolib::LoggerUtils
   class << self
     attr_accessor :authorization
     attr_accessor :drive
     attr_accessor :sheets
     attr_accessor :session
   end
+
+  # On behalf of domain user:
+  # https://developers.google.com/identity/protocols/OAuth2ServiceAccount
 
   # Returns current authorizer
   def self.authorize_service_account(auth_file:, scope: Google::Apis::DriveV3::AUTH_DRIVE)
