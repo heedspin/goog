@@ -14,9 +14,14 @@ module Goog::Services
   # https://developers.google.com/identity/protocols/OAuth2ServiceAccount
 
   # Returns current authorizer
-  def self.authorize_service_account(auth_file:, scope: Google::Apis::DriveV3::AUTH_DRIVE)
+  def self.authorize_service_account(auth_file:, scope: Google::Apis::DriveV3::AUTH_DRIVE, impersonate: nil)
     self.authorization = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(auth_file),
                                                                             scope: scope)
+
+    if impersonate
+      self.authorization.sub = impersonate
+    end
+
     goog_retries do
       self.authorization.fetch_access_token!
     end
