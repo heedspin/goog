@@ -310,7 +310,7 @@ class Goog::SheetsService
 
   # Returns true if it moved.  false if not moved.  exception on error.
   def move_sheet(sheet_id, destination_folder_id)
-    previous_parents = self.current_drive.get_file(sheet_id, fields: 'parents').parents
+    previous_parents = Goog::Services.drive.drive.get_file(sheet_id, fields: 'parents').parents
     if previous_parents.include?(destination_folder_id)
       false
     else
