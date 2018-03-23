@@ -315,10 +315,10 @@ class Goog::SheetsService
       false
     else
     goog_retries(profile_type: 'Sheets#move_sheet') do
-        Goog::Services.drive.update_file(sheet_id,
-                                         add_parents: destination_folder_id,
-                                         remove_parents: previous_parents.join(','),
-                                         fields: 'id, parents')
+        Goog::Services.drive.drive.update_file(sheet_id,
+                                               add_parents: destination_folder_id,
+                                               remove_parents: previous_parents.join(','),
+                                               fields: 'id, parents')
       end
       true
     end
