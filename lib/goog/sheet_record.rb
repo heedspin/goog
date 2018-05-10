@@ -102,7 +102,7 @@ class Goog::SheetRecord
     value = '' if value.nil?
     previous_value = self.get_row_value(key)
     return value if previous_value.blank? and value.blank?
-    if previous_value != value
+    unless self.close_enough?(previous_value, value)
       self.changes.push [key, previous_value, value]
     end
     if @row_values
@@ -349,6 +349,14 @@ class Goog::SheetRecord
   end
 
   protected
+
+  def close_enough?(previous_value, new_value)
+    if previous_value.is_a?(Numeric) and new_value.is_a?(Numeric)
+      (previous_value - new_value).abs < 0.000001
+    else
+      previous_value == new_value
+    end
+  end
 
   def looks_like_date?(value)
     value.is_a?(String) && (value =~ /\d+\/\d+\/\d+/)
