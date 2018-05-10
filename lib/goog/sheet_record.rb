@@ -118,7 +118,7 @@ class Goog::SheetRecord
 
   def changes_to_s
     self.changes.map { |key, previous_value, new_value|
-      "#{key} #{previous_value} => #{new_value}"
+      "#{key} #{previous_value}(#{previous_value.class.name}) => #{new_value}(#{new_value.class.name})"
     }.join(', ')
   end
   def changed?
