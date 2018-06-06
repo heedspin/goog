@@ -127,6 +127,14 @@ class Goog::DriveService
     file_id
   end
 
+  def folder_exists?(folder_id)
+    begin
+      !@drive.get_file(folder_id).nil?
+    rescue Google::Apis::ClientError
+      return false
+    end
+  end
+
   def get_files_in_folder(parent_folder_id)
     goog_retries do
       result = @drive.list_files(corpora: 'user', q: ["\"#{parent_folder_id}\" in parents"])

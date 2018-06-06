@@ -204,7 +204,7 @@ class Goog::SheetRecord
   end
 
   def respond_to?(mid)
-    if @row_values
+    if @row_values or @key_values
       schema_mid = if mid[-1] == '='
         mid[0..-2]
       else
@@ -223,7 +223,9 @@ class Goog::SheetRecord
       self.set_row_value(mid, args[0])
     else
       mid = mid.to_sym
-      raise NoMethodError.new("Unknown method #{mid}") if @row_values and !self.schema.member?(mid)
+      if self.row_values and !self.schema.member?(mid)
+        raise NoMethodError, "Unknown method #{mid}"
+      end
       self.get_row_value(mid)
     end
   end  
