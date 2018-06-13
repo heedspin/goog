@@ -11,13 +11,17 @@ class Goog::SheetsService
     @sheets = Google::Apis::SheetsV4::SheetsService.new
     @sheets.authorization = authorization
   end
-  def create_spreadsheet(title:, writer_emails: nil, owner_emails: nil)
+  def create_spreadsheet(title:, writer_emails: nil, owner_emails: nil, parent_folder_id: nil)
     spreadsheet = nil
     goog_retries(profile_type: 'Sheets#create_spreadsheet') do
       spreadsheet = @sheets.create_spreadsheet
     end
     if self.rename_spreadsheet(spreadsheet_id: spreadsheet.spreadsheet_id, title: title)
       Goog::Services.drive.add_permissions(file_id: spreadsheet.spreadsheet_id, writer_emails: writer_emails, owner_emails: owner_emails)
+    end
+    if parent_folder_id
+      Goog::Services.drive.move_file(file_id: spreadsheet.spreadsheet_id, 
+                                     parent_folder_id: parent_folder_id)
     end
     spreadsheet
   end
@@ -33,8 +37,8 @@ class Goog::SheetsService
     })
     goog_retries(profile_type: 'Sheets#rename_spreadsheet') do
       response = @sheets.batch_update_spreadsheet(spreadsheet_id, 
-                                                                      {requests: requests}, 
-                                                                      {})
+                                                  {requests: requests}, 
+                                                  {})
       response.spreadsheet_id.present?
     end
   end
@@ -306,22 +310,6 @@ class Goog::SheetsService
     end
     Goog::Services.drive.add_permissions(file_id: new_file.id, writer_emails: writer_emails, owner_emails: owner_emails)
     new_file
-  end
-
-  # Returns true if it moved.  false if not moved.  exception on error.
-  def move_sheet(sheet_id, destination_folder_id)
-    previous_parents = Goog::Services.drive.drive.get_file(sheet_id, fields: 'parents').parents
-    if previous_parents.include?(destination_folder_id)
-      false
-    else
-    goog_retries(profile_type: 'Sheets#move_sheet') do
-        Goog::Services.drive.drive.update_file(sheet_id,
-                                               add_parents: destination_folder_id,
-                                               remove_parents: previous_parents.join(','),
-                                               fields: 'id, parents')
-      end
-      true
-    end
   end
 
   def get_sheet_range(sheet_properties, columns: nil)

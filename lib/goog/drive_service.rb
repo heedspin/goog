@@ -151,7 +151,23 @@ class Goog::DriveService
                          fields: 'id, parents')
     end
     true
-  end    
+  end
+
+  def move_file(file_id: , parent_folder_id:)
+    file_id = file_id.id if file_id.is_a?(Google::Apis::DriveV3::File)
+    previous_parents = @drive.get_file(file_id, fields: 'parents').parents
+    if previous_parents.include?(parent_folder_id)
+      false
+    else
+    goog_retries(profile_type: 'Drive#move_file') do
+        @drive.update_file(file_id,
+                           add_parents: parent_folder_id,
+                           remove_parents: previous_parents.join(','),
+                           fields: 'id, parents')
+      end
+      true
+    end
+  end
 
   def delete_files_containing(containing, parent_folder_id: nil, file_type: :file)
     self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: file_type).each do |file|
