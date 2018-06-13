@@ -171,8 +171,8 @@ class Goog::SheetsService
   def batch_write_ranges(spreadsheet_id, data, major_dimension: :rows)    
     goog_retries(profile_type: 'Sheets#batch_write_ranges') do
       @sheets.batch_update_values(spreadsheet_id, 
-                                                      { value_input_option: 'USER_ENTERED', data: data, major_dimension: major_dimension },
-                                                      { })
+                                  { value_input_option: 'USER_ENTERED', data: data, major_dimension: major_dimension },
+                                  { })
     end
     true
   end
@@ -247,7 +247,8 @@ class Goog::SheetsService
   end
 
   # Thanks: https://stackoverflow.com/questions/12913874/is-it-possible-to-use-the-google-spreadsheet-api-to-add-a-comment-in-a-cell
-  def add_note(note:, spreadsheet_id:, sheet:, row_num:, num_rows:1, column_num:, num_cols: 1)
+  def add_note(spreadsheet, note:, sheet:, row_num:, num_rows:1, column_num:, num_cols: 1)
+    spreadsheet_id = ensure_spreadsheet_id(spreadsheet)
     requests = [ {
       repeat_cell: {
         range: {
@@ -265,6 +266,66 @@ class Goog::SheetsService
       @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
     end
     true
+  end
+
+  # https://developers.google.com/sheets/api/guides/metadata#creating_new_metadata
+  # https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.developerMetadata
+  def add_metadata(spreadsheet, sheet:, row_num: nil, column_num: nil, key:, value:, visibility: :project)
+    spreadsheet_id = ensure_spreadsheet_id(spreadsheet)
+    raise 'row_num or column_num required' if row_num.nil? and column_num.nil?
+    requests = [ {
+      create_developer_metadata: { 
+        developer_metadata: {
+          metadata_key: key,
+          metadata_value: value,
+          location: {
+            dimension_range: {
+              sheet_id: sheet.properties.sheet_id,
+              dimension: row_num.present? ? :rows : :columns,
+              start_index: (row_num || column_num) - 1,
+              end_index: (row_num || column_num)
+            }
+          },
+          visibility: visibility
+         } }
+    } ]
+
+    goog_retries(profile_type: 'Sheets#add_metadata') do
+      return @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+    end
+  end
+
+  def ensure_spreadsheet_id(spreadsheet)
+    raise "spreadsheet is required" if spreadsheet.nil?
+    if spreadsheet.is_a?(Google::Apis::SheetsV4::Spreadsheet)
+      spreadsheet.spreadsheet_id
+    else 
+      spreadsheet
+    end
+  end
+
+  def search_metadata(spreadsheet, filters)
+    spreadsheet_id = ensure_spreadsheet_id(spreadsheet)
+    goog_retries(profile_type: 'Sheets#search_metadata') do
+      return @sheets.search_developer_metadatum_developer_metadata(spreadsheet_id, { data_filters: [filters] }, {})
+    end    
+  end
+
+  def get_metadata_value(spreadsheet, sheet:, row_num: nil, column_num: nil, key:)
+    filters = {
+      developer_metadata_lookup: {
+        metadata_location: {
+          dimension_range: {
+            sheet_id: sheet.properties.sheet_id,
+            dimension: row_num.present? ? :rows : :columns,
+            start_index: (row_num || column_num) - 1,
+            end_index: (row_num || column_num)
+          }
+        }
+      }
+    }
+    result = self.search_metadata(spreadsheet, filters)
+    result.try(:matched_developer_metadata).try(:first).try(:developer_metadata).try(:metadata_value)
   end
 
   # Mind that row_num is NOT an index.  Starts counting with 1!
