@@ -14,7 +14,7 @@ class Goog::SheetRecord
   attr :changes
   attr :major_dimension
 
-  def initialize(explicit_schema: nil, row_values: nil, row_num: nil, sheet: nil, spreadsheet_id: nil, major_dimension: nil)    
+  def initialize(explicit_schema: nil, row_values: nil, row_num: nil, sheet: nil, spreadsheet_id: nil, major_dimension: nil, metadata: nil)
     @row_values = row_values
     @row_num = row_num
     @spreadsheet_id = spreadsheet_id
@@ -26,6 +26,9 @@ class Goog::SheetRecord
     end
     if @sheet.is_a?(String)
       @sheet = Goog::Services.sheets.get_sheet_by_name(@spreadsheet_id, @sheet)
+    end
+    if metadata
+      @_db_id = metadata['db_id']
     end
   end
 
@@ -116,6 +119,17 @@ class Goog::SheetRecord
     end
   end
 
+  def _db_id
+    @_db_id
+  end
+  def _db_id=(value)
+    unless self.close_enough?(@_db_id, value)
+      self.changes.push [:_db_id, @_db_id, value]
+      @_db_id = value
+    end
+    @_db_id
+  end
+
   def changes_to_s
     self.changes.map { |key, previous_value, new_value|
       "#{key} #{previous_value}(#{previous_value.class.name}) => #{new_value}(#{new_value.class.name})"
@@ -145,11 +159,28 @@ class Goog::SheetRecord
     raise Goog::NoSpreadsheetError unless self.spreadsheet_id
     if self.row_num
       Goog::Services.sheets.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
-    else
+    else # new record
       sheet_name = (@sheet.is_a?(String) ? @sheet : @sheet.properties.title)
       Goog::Services.sheets.append_range(self.spreadsheet_id, 
                                          "#{sheet_name}!A1:A1",
                                          [self.row_values])
+      # TODO: Fill in row_num.
+    end
+    if self._db_id.present? and self.row_num.present?
+      rn = cn = nil
+      if self.major_dimension.nil? or (self.major_dimension == :rows)
+        rn = self.row_num
+      else
+        cn = self.column_to_letter(self.row_num)
+      end
+
+      Goog::Services.sheets.add_metadata(self.spreadsheet_id, 
+                                         sheet: @sheet, 
+                                         row_num: rn, 
+                                         column_num: cn,
+                                         key: :db_id,
+                                         value: self._db_id, 
+                                         visibility: :project)
     end
   end
 
@@ -165,11 +196,11 @@ class Goog::SheetRecord
     end
   end
 
-  def self.to_collection(values: nil, spreadsheet_id:, sheet:, multiple_sheet_values: nil)
-    Goog::SheetRecordCollection.new self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, multiple_sheet_values: multiple_sheet_values)
+  def self.to_collection(values: nil, spreadsheet_id:, sheet:, multiple_sheet_values: nil, metadata: nil)
+    Goog::SheetRecordCollection.new self.from_range_values(values: values, spreadsheet_id: spreadsheet_id, sheet: sheet, multiple_sheet_values: multiple_sheet_values, metadata: metadata)
   end
 
-  def self.from_range_values(values: nil, spreadsheet_id: nil, sheet: nil, multiple_sheet_values: nil, major_dimension: :rows)
+  def self.from_range_values(values: nil, spreadsheet_id: nil, sheet: nil, multiple_sheet_values: nil, major_dimension: :rows, metadata: nil)
     if values.nil?
       if multiple_sheet_values.nil?
         raise 'values or multiple_sheet_values must be specified'
@@ -181,11 +212,14 @@ class Goog::SheetRecord
     #   self.schema = self.create_schema(values[0])
     # end
     values[1..-1].map.with_index do |row, index|
+      row_metadata = metadata && metadata[[major_dimension.to_s.upcase, index+1, index+2, sheet.properties.sheet_id]]
+      # byebug if metadata && Breakpoints.buc
       new(row_values: row, 
           row_num: index+2, 
           spreadsheet_id: spreadsheet_id, 
           sheet: sheet,
-          major_dimension: major_dimension)
+          major_dimension: major_dimension,
+          metadata: row_metadata)
     end
   end
 

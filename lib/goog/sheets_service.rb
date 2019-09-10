@@ -178,11 +178,17 @@ class Goog::SheetsService
   end
 
   def write_changes(spreadsheet_id, record, major_dimension: :rows)
-    data = []
-    record.changes.each do |key, previous_value, value|
-      data.push({ range: record.a1(key), values: [[value]] })
+    if record.changes.size > 0
+      data = []
+      record.changes.each do |key, previous_value, value|
+        unless key.to_s[0..0] == '_'
+          data.push({ range: record.a1(key), values: [[value]] })
+        end
+      end
+      self.batch_write_ranges(spreadsheet_id, data, major_dimension: major_dimension)
+    else
+      true
     end
-    self.batch_write_ranges(spreadsheet_id, data, major_dimension: major_dimension)
   end
 
   def insert_empty_rows(sheet:, spreadsheet_id:, start_row:, num_rows: 1)
@@ -277,11 +283,11 @@ class Goog::SheetsService
       create_developer_metadata: { 
         developer_metadata: {
           metadata_key: key,
-          metadata_value: value,
+          metadata_value: value.to_s,
           location: {
             dimension_range: {
               sheet_id: sheet.properties.sheet_id,
-              dimension: row_num.present? ? :rows : :columns,
+              dimension: row_num.present? ? 'ROWS' : 'COLUMNS',
               start_index: (row_num || column_num) - 1,
               end_index: (row_num || column_num)
             }
@@ -289,25 +295,17 @@ class Goog::SheetsService
           visibility: visibility
          } }
     } ]
-
+    log "add_metadata: #{sheet.properties.title} row #{row_num}"
     goog_retries(profile_type: 'Sheets#add_metadata') do
       return @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
     end
   end
 
-  def ensure_spreadsheet_id(spreadsheet)
-    raise "spreadsheet is required" if spreadsheet.nil?
-    if spreadsheet.is_a?(Google::Apis::SheetsV4::Spreadsheet)
-      spreadsheet.spreadsheet_id
-    else 
-      spreadsheet
-    end
-  end
-
   def search_metadata(spreadsheet, filters)
+    filters = [filters] unless filters.is_a?(Array)
     spreadsheet_id = ensure_spreadsheet_id(spreadsheet)
     goog_retries(profile_type: 'Sheets#search_metadata') do
-      return @sheets.search_developer_metadatum_developer_metadata(spreadsheet_id, { data_filters: [filters] }, {})
+      return @sheets.search_developer_metadatum_developer_metadata(spreadsheet_id, { data_filters: filters }, {})
     end    
   end
 
@@ -327,6 +325,42 @@ class Goog::SheetsService
     result = self.search_metadata(spreadsheet, filters)
     result.try(:matched_developer_metadata).try(:first).try(:developer_metadata).try(:metadata_value)
   end
+
+  def get_metadata_values(spreadsheet, sheets:, major_dimension: :rows)
+    filters = []
+    sheets.each do |sheet|
+      filters.push({
+        developer_metadata_lookup: {
+          location_type: 'ROW',
+          metadata_key: 'db_id'
+          # metadata_location: {
+          #   sheet_id: sheet.properties.sheet_id,
+          #   dimension: major_dimension,
+          #   start_index: 0,
+          #   end_index: sheet.properties.grid_properties.row_count - 1          
+          # }
+        }
+      })
+    end
+    
+    if search_results = self.search_metadata(spreadsheet, filters).try(:matched_developer_metadata)
+      results = {}
+      search_results.each do |matched_developer_metadata|
+        metadata = matched_developer_metadata.developer_metadata
+        key = [ 
+          metadata.location.dimension_range.dimension,
+          metadata.location.dimension_range.start_index,
+          metadata.location.dimension_range.end_index,
+          metadata.location.dimension_range.sheet_id
+        ]
+        (results[key] ||= Hash.new)[metadata.metadata_key] = metadata.metadata_value
+      end
+      results
+    else
+      nil
+    end
+  end
+
 
   # Mind that row_num is NOT an index.  Starts counting with 1!
   def delete_rows(spreadsheet_id:, sheet:, row_num:, num_rows: 1)
@@ -379,10 +413,19 @@ class Goog::SheetsService
     "#{sheet_properties.properties.title}!A1:#{self.column_to_letter(column_count)}#{sheet_properties.properties.grid_properties.row_count}"
   end
 
-  def self.included base
-    base.class_eval do
-      include Goog::DriveUtils
-      include Goog::DateUtils
+  def ensure_spreadsheet_id(spreadsheet)
+    raise "spreadsheet is required" if spreadsheet.nil?
+    if spreadsheet.is_a?(Google::Apis::SheetsV4::Spreadsheet)
+      spreadsheet.spreadsheet_id
+    else 
+      spreadsheet
     end
   end
+
+  # def self.included base
+  #   base.class_eval do
+  #     include Goog::DriveUtils
+  #     include Goog::DateUtils
+  #   end
+  # end
 end
