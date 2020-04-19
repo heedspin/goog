@@ -6,13 +6,13 @@ require 'goog/sheet_not_found_error'
 
 class Goog::SheetRecord
   include Goog::ColumnToLetter
-  attr :row_values
-  attr :key_values
-  attr :row_num
-  attr :spreadsheet_id
-  attr :sheet
-  attr :changes
-  attr :major_dimension
+  attr_accessor :row_values
+  attr_accessor :key_values
+  attr_accessor :row_num
+  attr_accessor :spreadsheet_id
+  attr_accessor :sheet
+  attr_accessor :changes
+  attr_accessor :major_dimension
 
   def initialize(explicit_schema: nil, row_values: nil, row_num: nil, sheet: nil, spreadsheet_id: nil, major_dimension: nil, metadata: nil)
     @row_values = row_values
@@ -28,7 +28,7 @@ class Goog::SheetRecord
       @sheet = Goog::Services.sheets.get_sheet_by_name(@spreadsheet_id, @sheet)
     end
     if metadata
-      @_db_id = metadata['db_id']
+      @_db_id = metadata.symbolize_keys![:db_id].try(:to_i)
     end
   end
 
@@ -70,6 +70,10 @@ class Goog::SheetRecord
 
   def changes
     @changes ||= []
+  end
+
+  def clear_changes
+    @changes = []
   end
 
   def a1(column)
@@ -129,6 +133,9 @@ class Goog::SheetRecord
     end
     @_db_id
   end
+  def _db_id_changed?
+    self.changes.any? { |c| c.first == :_db_id }
+  end
 
   def changes_to_s
     self.changes.map { |key, previous_value, new_value|
@@ -160,11 +167,15 @@ class Goog::SheetRecord
     if self.row_num
       Goog::Services.sheets.write_changes(self.spreadsheet_id, self, major_dimension: self.major_dimension)
     else # new record
-      sheet_name = (@sheet.is_a?(String) ? @sheet : @sheet.properties.title)
-      Goog::Services.sheets.append_range(self.spreadsheet_id, 
-                                         "#{sheet_name}!A1:A1",
-                                         [self.row_values])
-      # TODO: Fill in row_num.
+      Goog::Services.sheets.insert_empty_rows(spreadsheet_id: self.spreadsheet_id, 
+                                              sheet: @sheet, 
+                                              start_row: 2,
+                                              num_rows: 1)
+      Goog::Services.sheets.write_rows(spreadsheet_id: self.spreadsheet_id,
+                                       sheet: @sheet,
+                                       start_row: 2,
+                                       values: [self.row_values])
+      self.row_num = 2
     end
     if self._db_id.present? and self.row_num.present?
       rn = cn = nil
@@ -181,6 +192,16 @@ class Goog::SheetRecord
                                          key: :db_id,
                                          value: self._db_id, 
                                          visibility: :project)
+    end
+    self.clear_changes
+  end
+
+  def destroy
+    if self.row_num
+      Goog::Services.sheets.delete_rows(spreadsheet_id: self.spreadsheet_id,
+                                        sheet: @sheet,
+                                        row_num: self.row_num,
+                                        num_rows: 1)
     end
   end
 
@@ -212,8 +233,7 @@ class Goog::SheetRecord
     #   self.schema = self.create_schema(values[0])
     # end
     values[1..-1].map.with_index do |row, index|
-      row_metadata = metadata && metadata[[major_dimension.to_s.upcase, index+1, index+2, sheet.properties.sheet_id]]
-      # byebug if metadata && Breakpoints.buc
+      row_metadata = self.find_row_metadata(metadata, major_dimension, index, sheet)
       new(row_values: row, 
           row_num: index+2, 
           spreadsheet_id: spreadsheet_id, 
@@ -221,6 +241,16 @@ class Goog::SheetRecord
           major_dimension: major_dimension,
           metadata: row_metadata)
     end
+  end
+
+  def self.find_row_metadata(metadata, major_dimension, index, sheet)
+    return nil unless metadata
+    find_me_nil_sheet_id = [major_dimension.to_s.upcase, index+1, index+2, nil]
+    if result = metadata[find_me_nil_sheet_id]
+      return result
+    else
+      return metadata[[major_dimension.to_s.upcase, index+1, index+2, sheet.properties.sheet_id]]
+    end    
   end
 
   def _rounded(attribute)

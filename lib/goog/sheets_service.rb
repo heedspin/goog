@@ -125,6 +125,23 @@ class Goog::SheetsService
     end
   end
 
+  def read_name_value_pairs(names, spreadsheet_id, ranges: nil, sheets: nil, value_render_option: :unformatted_value)
+    names = names.to_set unless names.is_a?(Set)
+    results = {}
+    sheet_results = self.get_multiple_ranges(spreadsheet_id, ranges: ranges, sheets: sheets, value_render_option: value_render_option)
+    sheet_results.each do |sheet_ranges|
+      sheet_ranges.values.each do |row|
+        row.each_with_index do |value, index|
+          next unless value.is_a?(String)
+          if names.member?(value)
+            results[value] = row[index+1]
+          end
+        end
+      end
+    end
+    results
+  end
+
   # Returns hash of tab names to value arrays.
   def get_multiple_sheet_values(spreadsheet_id, sheets: nil, value_render_option: :unformatted_value)
     sheets ||= self.get_sheets(spreadsheet_id)

@@ -127,12 +127,29 @@ class Goog::DriveService
     file_id
   end
 
-  def folder_exists?(folder_id)
-    begin
-      !@drive.get_file(folder_id).nil?
-    rescue Google::Apis::ClientError
-      return false
+  def get_file_name(file_id)
+    @drive.get_file(file_id).try(:name)
+  end
+
+  def folder_exists?(folder_id: nil, folder_name: nil, parent_folder_id: nil)
+    if folder_id.present?
+      begin
+        !@drive.get_file(folder_id).nil?
+      rescue Google::Apis::ClientError
+        false
+      end
+    elsif folder_name.present?
+      result = self.get_files_by_name(folder_name, 
+                                      parent_folder_id: parent_folder_id, 
+                                      file_type: :folder)
+      result.size > 0
+    else
+      raise ArgumentError.new("Must specify folder_id or folder_name")
     end
+  end
+
+  def file_exists?(filename, parent_folder_id)
+    self.get_files_by_name(filename, parent_folder_id: parent_folder_id).first.try(:id).present?
   end
 
   def get_files_in_folder(parent_folder_id)
@@ -142,8 +159,23 @@ class Goog::DriveService
     end
   end
 
+  def get_parents(file_id:)
+    file = @drive.get_file(file_id, fields: 'parents')
+    return file.try(:parents)
+  end
+
+  def file_in_folder?(file_id:, folder_id:)
+    file = @drive.get_file(file_id, fields: 'parents')
+    return false unless file.try(:parents)
+    file.parents.include?(folder_id)
+  end
+
   def add_file_to_folder(file_id:, folder_id:)
-    previous_parents = @drive.get_file(file_id, fields: 'parents').parents.join(',')
+    file = @drive.get_file(file_id, fields: 'parents')
+    if file.nil?
+      raise Goog::FileNotFoundError.new
+    end
+    previous_parents = file.parents.try(:join, ',')
     goog_retries do
       @drive.update_file(file_id,
                          add_parents: folder_id,
@@ -169,13 +201,48 @@ class Goog::DriveService
     end
   end
 
-  def delete_files_containing(containing, parent_folder_id: nil, file_type: :file)
-    self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: file_type).each do |file|
+  def trash_files_containing(containing, parent_folder_id: nil, file_type: :file, max: 10, force_parent_folder: true)
+    if containing.blank?
+      raise ArgumentError.new("Containing is empty.  Wildcard trash is disabled")
+    end
+    if force_parent_folder and parent_folder_id.blank?
+      raise ArgumentError.new('force_parent_folder is true and parent_folder_id is blank')
+    end
+    files = self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: file_type)
+    max ||= 1
+    if files.size > max
+      raise "Too many files to trash #{files.size}.  Set max:"
+    end
+    files.each do |file|
+      begin
+        goog_retries do
+          @drive.update_file(file.id,{trashed: true},{})
+        end
+        log "Trashing #{file.name}"
+      rescue Google::Apis::ClientError => e
+        log_error "Failed to trash #{file.name}"
+      end
+    end
+  end
+
+  def permanently_delete_files_containing(containing, parent_folder_id: nil, file_type: :file, max: 10, force_parent_folder: true)
+    if containing.blank?
+      raise ArgumentError.new("Containing is empty.  Wildcard delete is disabled")
+    end
+    if force_parent_folder and parent_folder_id.blank?
+      raise ArgumentError.new('force_parent_folder is true and parent_folder_id is blank')
+    end
+    max ||= 1
+    files = self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: file_type)
+    if files.size > max
+      raise "Too many files to delete #{files.size}.  max=#{max}"
+    end
+    files.each do |file|
       begin
         goog_retries do
           @drive.delete_file(file.id)
         end
-        log "Deleted #{file.name}"
+        log "Permanently Deleted #{file.name}"
       rescue Google::Apis::ClientError => e
         log_error "Failed to delete #{file.name}"
       end
@@ -265,10 +332,10 @@ class Goog::DriveService
     return file_id
   end
 
-  def self.included base
-    base.class_eval do
-      include Plutolib::LoggerUtils
-      include Goog::Retry
-    end
-  end
+  # def self.included base
+  #   base.class_eval do
+  #     include Plutolib::LoggerUtils
+  #     include Goog::Retry
+  #   end
+  # end
 end

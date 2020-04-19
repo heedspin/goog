@@ -24,6 +24,7 @@ class Goog::SheetRecordCollection
   def sort(field, reverse: false, default: nil)
     @records.sort_by! { |r| r.send(field) || default }
     @records.reverse! if reverse
+    self
   end
 
   def find(fields=nil, &block)
