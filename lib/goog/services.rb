@@ -53,5 +53,11 @@ module Goog::Services
     @sheets
   end
 
+  def self.docs
+    if @docs.nil?
+      raise "No authorizer established" unless self.authorized?
+      @docs = Goog::DocsService.new(self.authorization)
+    end
+  end
 
 end

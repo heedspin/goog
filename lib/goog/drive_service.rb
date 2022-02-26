@@ -93,7 +93,7 @@ class Goog::DriveService
     end
   end
 
-  def get_folders_by_name(name, parent_folder_id: nil)
+  def get_folders_by_name(name, parent_folder_id: :not_specified)
     self.get_files_by_name(name, parent_folder_id: parent_folder_id, file_type: :folder)
   end
 
@@ -102,8 +102,13 @@ class Goog::DriveService
   end
 
   # https://developers.google.com/drive/v3/web/search-parameters
-  def get_files_by_name(name, parent_folder_id: nil, file_type: :file)
+  def get_files_by_name(name, parent_folder_id: :not_specified, file_type: :file)
     query = ["name = '#{name}'"]
+    if parent_folder_id == :not_specified
+      parent_folder_id = nil
+    elsif parent_folder_id.nil?
+      raise ArgumentError.new('parent_folder_id can not be nil.  use :not_specified')
+    end
     self.build_drive_utils_query(query, parent_folder_id: parent_folder_id, file_type: file_type)
     goog_retries do
       result = @drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
