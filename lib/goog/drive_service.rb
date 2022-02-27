@@ -12,6 +12,21 @@ class Goog::DriveService
     @drive.authorization = authorization
   end
 
+  def copy_file(source_file_id, new_name: nil, writer_emails: nil, owner_emails: nil, destination_folder_id: nil)
+    new_file = nil
+    goog_retries do
+      new_file = Goog::Services.drive.drive.copy_file(source_file_id)
+    end
+    if new_name
+      self.rename_file(new_file, new_name)
+    end
+    if destination_folder_id
+      Goog::Services.drive.add_file_to_folder(file_id: new_file.id, folder_id: destination_folder_id) || (return false)
+    end
+    Goog::Services.drive.add_permissions(file_id: new_file.id, writer_emails: writer_emails, owner_emails: owner_emails)
+    new_file
+  end  
+
   # Returns nil on failure.  Permission id on success.
   def add_permissions(file_id:, writer_emails: nil, owner_emails: nil)
     result = []
