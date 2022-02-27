@@ -8,6 +8,7 @@ module Goog::Services
     attr_accessor :drive
     attr_accessor :sheets
     attr_accessor :session
+    attr_accessor :docs
   end
 
   # On behalf of domain user:
@@ -58,6 +59,7 @@ module Goog::Services
       raise "No authorizer established" unless self.authorized?
       @docs = Goog::DocsService.new(self.authorization)
     end
+    @docs
   end
 
 end

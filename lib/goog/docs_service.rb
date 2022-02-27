@@ -6,7 +6,7 @@ class Goog::DocsService
   include Plutolib::LoggerUtils
   include Goog::Retry
   
-  attr_accessor :drive
+  attr_accessor :docs
   def initialize(authorization)
     @docs = Google::Apis::DocsV1::DocsService.new
     @docs.authorization = authorization
@@ -17,6 +17,20 @@ class Goog::DocsService
       @docs.get_document(document_id)
     end
   end
+
+  def replace_doc(source_file_id:, destination_file_id:)
+    source_io = StringIO.new
+    mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    Goog::Services.drive.drive.export_file(source_file_id, 
+                                           mime_type,
+                                           download_dest: source_io)
+    goog_retries do
+      file_id = Goog::Services.drive.drive.update_file(destination_file_id,
+                                                       upload_source: source_io,
+                                                       content_type: mime_type)
+    end
+    true
+  end  
 
   def replace_text(document_id:, mapping:)
     requests = []

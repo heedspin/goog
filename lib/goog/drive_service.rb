@@ -314,8 +314,8 @@ class Goog::DriveService
   # https://developers.google.com/drive/v3/web/manage-downloads
   def download_document_to_odt(file_id, download_path)
     @drive.export_file(file_id,
-                                   'application/vnd.oasis.opendocument.text',
-                                    download_dest: download_path)
+                       'application/vnd.oasis.opendocument.text',
+                        download_dest: download_path)
     true
   end
 
