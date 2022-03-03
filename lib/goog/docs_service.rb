@@ -34,7 +34,9 @@ class Goog::DocsService
 
   def replace_text(document_id:, mapping:)
     requests = []
-    mapping.each do |key, value|
+    # If you go be length desc solves the LOAN_AMOUNT, LOAN_AMOUNT_ENGLISH => $100,000_ENGLISH problem.
+    mapping.keys.sort_by(&:length).reverse.each do |key|
+      value = mapping[key]
       requests.push({
         replace_all_text: {
           contains_text: {
