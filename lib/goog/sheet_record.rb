@@ -47,6 +47,7 @@ class Goog::SheetRecord
   def self.create_schema(header_row)
     result = {}
     header_row.each_with_index do |value, index|
+      break unless value.is_a?(String)
       key = value.parameterize.underscore.to_sym
       if @@rename_columns and (new_key = @@rename_columns[key])
         key = new_key
