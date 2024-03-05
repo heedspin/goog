@@ -116,8 +116,13 @@ class Goog::DriveService
     self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: :folder)
   end
 
+  def escape_quotes(text)
+    quote_sed_string(text)
+  end
+
   # https://developers.google.com/drive/v3/web/search-parameters
   def get_files_by_name(name, parent_folder_id: :not_specified, file_type: :file)
+    name = escape_quotes(name)
     query = ["name = '#{name}'"]
     if parent_folder_id == :not_specified
       parent_folder_id = nil
@@ -132,6 +137,7 @@ class Goog::DriveService
   end
 
   def create_folder(name, parent_folder_id: nil, writer_emails: nil, owner_emails: nil)
+    name = escape_quotes(name)
     file_metadata = {
       name: name,
       mime_type: 'application/vnd.google-apps.folder'
