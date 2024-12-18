@@ -50,8 +50,7 @@ class Goog::DocsService
     # batch_update_document(document_id, batch_update_document_request_object = nil, fields: nil, quota_user: nil, options: nil, &block)
     goog_retries(profile_type: 'Docs#replace_text') do
       @docs.batch_update_document(document_id, 
-                                  {requests: requests}, 
-                                  {})
+                                  {requests: requests})
     end
     true
   end

@@ -5,4 +5,4 @@ cd "$script_location/.."
 rails_root=`pwd`
 
 # Add --dry-run
-rsync -va --delete --exclude-from="$rails_root/script/rsync_exclude.txt" "$rails_root/" omicron:/var/www/lib/goog
+rsync -va --delete --exclude-from="$rails_root/script/rsync_exclude.txt" "$rails_root/" polly:/var/www/lib/goog

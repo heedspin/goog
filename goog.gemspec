@@ -18,8 +18,9 @@ Gem::Specification.new do |s|
  
   s.required_rubygems_version = ">= 2.0.0" 
   s.add_dependency 'plutolib'
-  s.add_dependency 'google-api-client', '~> 0.14'
- s.files        = Dir.glob("{bin,lib}/**/*") + %w(LICENSE README.md)
+  s.add_dependency 'google-api-client'
+  s.add_dependency 'google-apis-sheets_v4', '~> 0.1'
+  s.files        = Dir.glob("{bin,lib}/**/*") + %w(LICENSE README.md)
   s.require_path = 'lib'
 end
 

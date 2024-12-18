@@ -242,7 +242,7 @@ class Goog::DriveService
     files.each do |file|
       begin
         goog_retries do
-          @drive.update_file(file.id,{trashed: true},{})
+          @drive.update_file(file.id,{trashed: true})
         end
         log "Trashing #{file.name}"
       rescue Google::Apis::ClientError => e

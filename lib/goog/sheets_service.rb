@@ -37,8 +37,7 @@ class Goog::SheetsService
     })
     goog_retries(profile_type: 'Sheets#rename_spreadsheet') do
       response = @sheets.batch_update_spreadsheet(spreadsheet_id, 
-                                                  {requests: requests}, 
-                                                  {})
+                                                  {requests: requests})
       response.spreadsheet_id.present?
     end
   end
@@ -53,8 +52,7 @@ class Goog::SheetsService
     })
     goog_retries(profile_type: 'Sheets#turn_off_filters') do
       response = @sheets.batch_update_spreadsheet(spreadsheet_id, 
-                                                  {requests: requests}, 
-                                                  {})
+                                                  {requests: requests})
       response.spreadsheet_id.present?
     end
   end
@@ -188,8 +186,7 @@ class Goog::SheetsService
   def batch_write_ranges(spreadsheet_id, data, major_dimension: :rows)    
     goog_retries(profile_type: 'Sheets#batch_write_ranges') do
       @sheets.batch_update_values(spreadsheet_id, 
-                                  { value_input_option: 'USER_ENTERED', data: data, major_dimension: major_dimension },
-                                  { })
+                                  { value_input_option: 'USER_ENTERED', data: data, major_dimension: major_dimension })
     end
     true
   end
@@ -223,8 +220,7 @@ class Goog::SheetsService
     })
     goog_retries(profile_type: 'Sheets#insert_empty_rows') do
       @sheets.batch_update_spreadsheet(spreadsheet_id, 
-                                       {requests: requests}, 
-                                       {})
+                                       {requests: requests})
     end
     true
   end
@@ -264,7 +260,7 @@ class Goog::SheetsService
       }
     } ]
     goog_retries(profile_type: 'Sheets#cut_paste_rows') do
-      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests})
     end
     true
   end
@@ -286,7 +282,7 @@ class Goog::SheetsService
       }
     } ]
     goog_retries(profile_type: 'Sheets#add_note') do
-      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests})
     end
     true
   end
@@ -314,7 +310,7 @@ class Goog::SheetsService
     } ]
     log "add_metadata: #{sheet.properties.title} row #{row_num}"
     goog_retries(profile_type: 'Sheets#add_metadata') do
-      return @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+      return @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests})
     end
   end
 
@@ -322,7 +318,7 @@ class Goog::SheetsService
     filters = [filters] unless filters.is_a?(Array)
     spreadsheet_id = ensure_spreadsheet_id(spreadsheet)
     goog_retries(profile_type: 'Sheets#search_metadata') do
-      return @sheets.search_developer_metadatum_developer_metadata(spreadsheet_id, { data_filters: filters }, {})
+      return @sheets.search_developer_metadatum_developer_metadata(spreadsheet_id, { data_filters: filters })
     end    
   end
 
@@ -392,7 +388,7 @@ class Goog::SheetsService
       }
     } ]
     goog_retries(profile_type: 'Sheets#delete_rows') do
-      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests}, {})
+      @sheets.batch_update_spreadsheet(spreadsheet_id, {requests: requests})
     end
     true
   end
@@ -413,8 +409,7 @@ class Goog::SheetsService
       })
     goog_retries(profile_type: 'Sheets#copy_spreadsheet') do
         @sheets.batch_update_spreadsheet(new_file.id, 
-                                         {requests: requests},
-                                         {})
+                                         {requests: requests})
       end
     end
     if destination_folder_id
