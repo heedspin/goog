@@ -6,9 +6,12 @@ module Goog::Services
   class << self
     attr_accessor :authorization
     attr_accessor :drive
+    attr_accessor :drive_injection
     attr_accessor :sheets
+    attr_accessor :sheets_injection
     attr_accessor :session
     attr_accessor :docs
+    attr_accessor :docs_injection
   end
 
   # On behalf of domain user:
@@ -31,7 +34,7 @@ module Goog::Services
 
   def self.disconnect
     self.authorization = nil
-    @drive = @sheets = nil
+    @drive = @sheets = @docs = nil
   end
 
   def self.authorized?
@@ -39,6 +42,7 @@ module Goog::Services
   end
 
   def self.drive
+    return self.drive_injection if self.drive_injection
     if @drive.nil?
       raise "No authorizer established" unless self.authorized?
       @drive = Goog::DriveService.new(self.authorization)
@@ -47,6 +51,7 @@ module Goog::Services
   end
 
   def self.sheets
+    return self.sheets_injection if self.sheets_injection
     if @sheets.nil?
       raise "No authorizer established" unless self.authorized?
       @sheets = Goog::SheetsService.new(self.authorization)
@@ -55,6 +60,7 @@ module Goog::Services
   end
 
   def self.docs
+    return self.docs_injection if self.docs_injection
     if @docs.nil?
       raise "No authorizer established" unless self.authorized?
       @docs = Goog::DocsService.new(self.authorization)
