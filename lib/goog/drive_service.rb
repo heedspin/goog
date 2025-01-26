@@ -136,6 +136,12 @@ class Goog::DriveService
     end
   end
 
+  def export_file(file_id, mime_type)
+    goog_retries do
+      return @drive.export_file(file_id, mime_type)
+    end
+  end
+
   def create_folder(name, parent_folder_id: nil, writer_emails: nil, owner_emails: nil)
     name = escape_quotes(name)
     file_metadata = {
