@@ -142,6 +142,13 @@ class Goog::DriveService
     end
   end
 
+  # You can not export a PDF from google drive.  You can only download it.
+  def download_file(file_id)
+    goog_retries do
+      return @drive.download_file(file_id)
+    end
+  end
+
   def create_folder(name, parent_folder_id: nil, writer_emails: nil, owner_emails: nil)
     name = escape_quotes(name)
     file_metadata = {
