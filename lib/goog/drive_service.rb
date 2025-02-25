@@ -78,19 +78,7 @@ class Goog::DriveService
     end
   end
 
-  def build_drive_utils_query(query, parent_folder_id: nil, file_type: nil)
-    if parent_folder_id
-      query.push "parents in '#{parent_folder_id}'"
-    end
-    case file_type
-    when :folder
-      query.push "mimeType = 'application/vnd.google-apps.folder'"
-    when :file
-      query.push "mimeType != 'application/vnd.google-apps.folder'"
-    end
-  end
-
-  def fetch_all(&block)
+ def fetch_all(&block)
     @drive.fetch_all(items: :files) do |page_token|
       goog_retries do 
         @drive.list_files(corpora: 'user', include_team_drive_items: false)
@@ -116,22 +104,38 @@ class Goog::DriveService
     self.get_files_containing(containing, parent_folder_id: parent_folder_id, file_type: :folder)
   end
 
-  def escape_quotes(text)
-    quote_sed_string(text)
+  def build_drive_utils_query(query, parent_folder_id: nil, file_type: nil)
+    if parent_folder_id
+      query.push "parents in '#{parent_folder_id}'"
+    end
+    case file_type
+    when :folder
+      query.push "mimeType = 'application/vnd.google-apps.folder'"
+    when :file
+      query.push "mimeType != 'application/vnd.google-apps.folder'"
+    end
+    query
+  end
+
+  def escape_single_quotes(text)
+    text.gsub("'", "\\\\'")
   end
 
   # https://developers.google.com/drive/v3/web/search-parameters
   def get_files_by_name(name, parent_folder_id: :not_specified, file_type: :file)
-    name = escape_quotes(name)
+    name = escape_single_quotes(name)
     query = ["name = '#{name}'"]
+
     if parent_folder_id == :not_specified
       parent_folder_id = nil
     elsif parent_folder_id.nil?
       raise ArgumentError.new('parent_folder_id can not be nil.  use :not_specified')
     end
     self.build_drive_utils_query(query, parent_folder_id: parent_folder_id, file_type: file_type)
+    full_query = query.join(' and ')
+    log "get_files_by_name with query: #{full_query}"
     goog_retries do
-      result = @drive.list_files(corpora: 'user', include_team_drive_items: false, q: query.join(' and '))
+      result = @drive.list_files(corpora: 'user', include_team_drive_items: false, q: full_query)
       return result.files
     end
   end
@@ -150,7 +154,7 @@ class Goog::DriveService
   end
 
   def create_folder(name, parent_folder_id: nil, writer_emails: nil, owner_emails: nil)
-    name = escape_quotes(name)
+    name = escape_single_quotes(name)
     file_metadata = {
       name: name,
       mime_type: 'application/vnd.google-apps.folder'
